@@ -7,13 +7,13 @@
 
 #include <mgba-util/common.h>
 
+#include <mgba-util/audio-buffer.h>
+#include <mgba-util/audio-resampler.h>
 #include <mgba/core/cheats.h>
 #include <mgba/core/core.h>
 #include <mgba/core/log.h>
 #include <mgba/core/serialize.h>
 #include <mgba/core/version.h>
-#include <mgba-util/audio-buffer.h>
-#include <mgba-util/audio-resampler.h>
 #ifdef M_CORE_GB
 #include <mgba/gb/core.h>
 #include <mgba/internal/gb/gb.h>
@@ -52,9 +52,9 @@ static unsigned targetSampleRate = GBA_RESAMPLED_RATE;
 #define SAMPLES_PER_FRAME_MOVING_AVG_ALPHA (1.0f / 180.0f)
 #define EVENT_RATE 60
 
-#define VIDEO_WIDTH_MAX  256
+#define VIDEO_WIDTH_MAX 256
 #define VIDEO_HEIGHT_MAX 224
-#define VIDEO_BUFF_SIZE  (VIDEO_WIDTH_MAX * VIDEO_HEIGHT_MAX * sizeof(mColor))
+#define VIDEO_BUFF_SIZE (VIDEO_WIDTH_MAX * VIDEO_HEIGHT_MAX * sizeof(mColor))
 
 static retro_environment_t environCallback;
 static retro_video_refresh_t videoCallback;
@@ -89,7 +89,7 @@ static struct mCore* core;
 static mColor* outputBuffer = NULL;
 struct mAudioBuffer audioResampleBuffer;
 struct mAudioResampler audioResampler;
-static int16_t *audioSampleBuffer = NULL;
+static int16_t* audioSampleBuffer = NULL;
 static size_t audioSampleBufferSize;
 static void* data;
 static size_t dataSize;
@@ -137,15 +137,9 @@ static int32_t audioLowPassLeftPrev = 0;
 static int32_t audioLowPassRightPrev = 0;
 
 static const int keymap[] = {
-	RETRO_DEVICE_ID_JOYPAD_A,
-	RETRO_DEVICE_ID_JOYPAD_B,
-	RETRO_DEVICE_ID_JOYPAD_SELECT,
-	RETRO_DEVICE_ID_JOYPAD_START,
-	RETRO_DEVICE_ID_JOYPAD_RIGHT,
-	RETRO_DEVICE_ID_JOYPAD_LEFT,
-	RETRO_DEVICE_ID_JOYPAD_UP,
-	RETRO_DEVICE_ID_JOYPAD_DOWN,
-	RETRO_DEVICE_ID_JOYPAD_R,
+	RETRO_DEVICE_ID_JOYPAD_A,     RETRO_DEVICE_ID_JOYPAD_B,     RETRO_DEVICE_ID_JOYPAD_SELECT,
+	RETRO_DEVICE_ID_JOYPAD_START, RETRO_DEVICE_ID_JOYPAD_RIGHT, RETRO_DEVICE_ID_JOYPAD_LEFT,
+	RETRO_DEVICE_ID_JOYPAD_UP,    RETRO_DEVICE_ID_JOYPAD_DOWN,  RETRO_DEVICE_ID_JOYPAD_R,
 	RETRO_DEVICE_ID_JOYPAD_L,
 };
 
@@ -162,47 +156,42 @@ const char* const projectName = "mGBA";
 /* Frame skipping functions */
 
 static void _retroAudioBuffStatusCallback(bool active, unsigned occupancy, bool underrunLikely) {
-	retroAudioBuffActive    = active;
+	retroAudioBuffActive = active;
 	retroAudioBuffOccupancy = occupancy;
-	retroAudioBuffUnderrun  = underrunLikely;
+	retroAudioBuffUnderrun = underrunLikely;
 }
 
 static void _initFrameskip(void) {
-
 	if (frameskipType > 0) {
-
 		bool calculateAudioLatency = true;
 
 		if (frameskipType == 3) { /* Fixed Interval */
 			environCallback(RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK, NULL);
 		} else {
-
 			struct retro_audio_buffer_status_callback BuffStatusCb;
 			BuffStatusCb.callback = _retroAudioBuffStatusCallback;
 
 			if (!environCallback(RETRO_ENVIRONMENT_SET_AUDIO_BUFFER_STATUS_CALLBACK, &BuffStatusCb)) {
-
 				if (logCallback)
-					logCallback(RETRO_LOG_WARN, "Frameskip disabled - frontend does not support audio buffer status monitoring.\n");
+					logCallback(RETRO_LOG_WARN,
+					            "Frameskip disabled - frontend does not support audio buffer status monitoring.\n");
 
-				retroAudioBuffActive    = false;
+				retroAudioBuffActive = false;
 				retroAudioBuffOccupancy = 0;
-				retroAudioBuffUnderrun  = false;
-				retroAudioLatency       = 0;
-				calculateAudioLatency   = false;
+				retroAudioBuffUnderrun = false;
+				retroAudioLatency = 0;
+				calculateAudioLatency = false;
 			}
 		}
 
 		if (calculateAudioLatency) {
-
 			/* Frameskip is enabled - increase frontend
 			 * audio latency to minimise potential
 			 * buffer underruns */
-			float frameTimeMsec = 1000.0f * (float)core->frameCycles(core) /
-					(float)core->frequency(core);
+			float frameTimeMsec = 1000.0f * (float) core->frameCycles(core) / (float) core->frequency(core);
 
 			/* Set latency to 6x current frame time... */
-			retroAudioLatency = (unsigned)((6.0f * frameTimeMsec) + 0.5f);
+			retroAudioLatency = (unsigned) ((6.0f * frameTimeMsec) + 0.5f);
 
 			/* ...then round up to nearest multiple of 32 */
 			retroAudioLatency = (retroAudioLatency + 0x1F) & ~0x1F;
@@ -216,17 +205,16 @@ static void _initFrameskip(void) {
 	updateAudioLatency = true;
 }
 
-static void _loadFrameskipSettings(struct mCoreOptions *opts) {
-
+static void _loadFrameskipSettings(struct mCoreOptions* opts) {
 	struct retro_variable var;
 	unsigned oldFrameskipType;
 	unsigned frameskipInterval;
 
-	var.key   = "mgba_frameskip";
+	var.key = "mgba_frameskip";
 	var.value = 0;
 
 	oldFrameskipType = frameskipType;
-	frameskipType    = 0;
+	frameskipType = 0;
 
 	if (environCallback(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
 		if (strcmp(var.value, "auto") == 0) {
@@ -238,7 +226,7 @@ static void _loadFrameskipSettings(struct mCoreOptions *opts) {
 		}
 	}
 
-	var.key   = "mgba_frameskip_threshold";
+	var.key = "mgba_frameskip_threshold";
 	var.value = 0;
 
 	frameskipThreshold = 33;
@@ -246,7 +234,7 @@ static void _loadFrameskipSettings(struct mCoreOptions *opts) {
 	if (environCallback(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
 		frameskipThreshold = strtol(var.value, NULL, 10);
 
-	var.key   = "mgba_frameskip_interval";
+	var.key = "mgba_frameskip_interval";
 	var.value = 0;
 
 	frameskipInterval = 0;
@@ -256,11 +244,9 @@ static void _loadFrameskipSettings(struct mCoreOptions *opts) {
 
 	/* Update internal (mGBA config) frameskip value */
 	if (opts) {
-		opts->frameskip = (frameskipType == 3) ?
-				frameskipInterval : 0;
+		opts->frameskip = (frameskipType == 3) ? frameskipInterval : 0;
 	} else {
-		mCoreConfigSetUIntValue(&core->config, "frameskip",
-				(frameskipType == 3) ? frameskipInterval : 0);
+		mCoreConfigSetUIntValue(&core->config, "frameskip", (frameskipType == 3) ? frameskipInterval : 0);
 		mCoreLoadConfig(core);
 	}
 
@@ -271,13 +257,12 @@ static void _loadFrameskipSettings(struct mCoreOptions *opts) {
 }
 
 /* Audio post processing */
-static void _audioLowPassFilter(int16_t *buffer, int count) {
-
-	int samples  = count;
-	int16_t *out = buffer;
+static void _audioLowPassFilter(int16_t* buffer, int count) {
+	int samples = count;
+	int16_t* out = buffer;
 
 	/* Restore previous samples */
-	int32_t audioLowPassLeft  = audioLowPassLeftPrev;
+	int32_t audioLowPassLeft = audioLowPassLeftPrev;
 	int32_t audioLowPassRight = audioLowPassRightPrev;
 
 	/* Single-pole low-pass filter (6 dB/octave) */
@@ -286,11 +271,11 @@ static void _audioLowPassFilter(int16_t *buffer, int count) {
 
 	do {
 		/* Apply low-pass filter */
-		audioLowPassLeft  = (audioLowPassLeft  * factorA) + (*out       * factorB);
+		audioLowPassLeft = (audioLowPassLeft * factorA) + (*out * factorB);
 		audioLowPassRight = (audioLowPassRight * factorA) + (*(out + 1) * factorB);
 
 		/* 16.16 fixed point */
-		audioLowPassLeft  >>= 16;
+		audioLowPassLeft >>= 16;
 		audioLowPassRight >>= 16;
 
 		/* Update sound buffer */
@@ -299,12 +284,11 @@ static void _audioLowPassFilter(int16_t *buffer, int count) {
 	} while (--samples);
 
 	/* Save last samples for next frame */
-	audioLowPassLeftPrev  = audioLowPassLeft;
+	audioLowPassLeftPrev = audioLowPassLeft;
 	audioLowPassRightPrev = audioLowPassRight;
 }
 
 static void _loadAudioLowPassFilterSettings(void) {
-
 	struct retro_variable var;
 	audioLowPassEnabled = false;
 	audioLowPassRange = (60 * 0x10000) / 100;
@@ -330,42 +314,41 @@ static void _loadAudioLowPassFilterSettings(void) {
 #if defined(COLOR_16_BIT) && defined(COLOR_5_6_5)
 
 /* Colour correction */
-#define CC_TARGET_GAMMA   2.2f
-#define CC_RGB_MAX        31.0f
+#define CC_TARGET_GAMMA 2.2f
+#define CC_RGB_MAX 31.0f
 
 /* > Note: GBC and GBA share almost identical
  *   colour space, but we maintain independent
  *   values in case of future adjustments */
-#define GBC_CC_LUM        0.94f
-#define GBC_CC_R          0.82f
-#define GBC_CC_G          0.665f
-#define GBC_CC_B          0.73f
-#define GBC_CC_RG         0.125f
-#define GBC_CC_RB         0.195f
-#define GBC_CC_GR         0.24f
-#define GBC_CC_GB         0.075f
-#define GBC_CC_BR        -0.06f
-#define GBC_CC_BG         0.21f
+#define GBC_CC_LUM 0.94f
+#define GBC_CC_R 0.82f
+#define GBC_CC_G 0.665f
+#define GBC_CC_B 0.73f
+#define GBC_CC_RG 0.125f
+#define GBC_CC_RB 0.195f
+#define GBC_CC_GR 0.24f
+#define GBC_CC_GB 0.075f
+#define GBC_CC_BR -0.06f
+#define GBC_CC_BG 0.21f
 #define GBC_CC_GAMMA_ADJ -0.5f
 
-#define GBA_CC_LUM        0.94f
-#define GBA_CC_R          0.82f
-#define GBA_CC_G          0.665f
-#define GBA_CC_B          0.73f
-#define GBA_CC_RG         0.125f
-#define GBA_CC_RB         0.195f
-#define GBA_CC_GR         0.24f
-#define GBA_CC_GB         0.075f
-#define GBA_CC_BR        -0.06f
-#define GBA_CC_BG         0.21f
-#define GBA_CC_GAMMA_ADJ  1.0f
+#define GBA_CC_LUM 0.94f
+#define GBA_CC_R 0.82f
+#define GBA_CC_G 0.665f
+#define GBA_CC_B 0.73f
+#define GBA_CC_RG 0.125f
+#define GBA_CC_RB 0.195f
+#define GBA_CC_GR 0.24f
+#define GBA_CC_GB 0.075f
+#define GBA_CC_BR -0.06f
+#define GBA_CC_BG 0.21f
+#define GBA_CC_GAMMA_ADJ 1.0f
 
-static mColor* ccLUT               = NULL;
-static unsigned ccType             = 0;
+static mColor* ccLUT = NULL;
+static unsigned ccType = 0;
 static bool colorCorrectionEnabled = false;
 
 static void _initColorCorrection(void) {
-
 	/* Constants */
 	static const float displayGammaInv = 1.0f / CC_TARGET_GAMMA;
 	static const float rgbMaxInv = 1.0f / CC_RGB_MAX;
@@ -388,77 +371,74 @@ static void _initColorCorrection(void) {
 	/* Set colour correction parameters */
 	colorCorrectionEnabled = false;
 	switch (ccType) {
-		case 1:
-			model = GB_MODEL_AGB;
-			break;
-		case 2:
-			model = GB_MODEL_CGB;
-			break;
-		case 3:
-			{
-				/* Autodetect
-				 * (Note: This is somewhat clumsy due to the
-				 *  M_CORE_GBA & M_CORE_GB defines... */
+	case 1:
+		model = GB_MODEL_AGB;
+		break;
+	case 2:
+		model = GB_MODEL_CGB;
+		break;
+	case 3: {
+		/* Autodetect
+		 * (Note: This is somewhat clumsy due to the
+		 *  M_CORE_GBA & M_CORE_GB defines... */
 #ifdef M_CORE_GBA
-				if (core->platform(core) == mPLATFORM_GBA) {
-					model = GB_MODEL_AGB;
-				}
+		if (core->platform(core) == mPLATFORM_GBA) {
+			model = GB_MODEL_AGB;
+		}
 #endif
 
 #ifdef M_CORE_GB
-				if (model != GB_MODEL_AGB) {
-					if (core->platform(core) == mPLATFORM_GB) {
+		if (model != GB_MODEL_AGB) {
+			if (core->platform(core) == mPLATFORM_GB) {
+				const char* modelName = mCoreConfigGetValue(&core->config, "gb.model");
+				struct GB* gb = core->board;
 
-						const char* modelName = mCoreConfigGetValue(&core->config, "gb.model");
-						struct GB* gb = core->board;
-
-						if (modelName) {
-							gb->model = GBNameToModel(modelName);
-						} else {
-							GBDetectModel(gb);
-						}
-
-						if (gb->model == GB_MODEL_CGB) {
-							model = GB_MODEL_CGB;
-						}
-					}
+				if (modelName) {
+					gb->model = GBNameToModel(modelName);
+				} else {
+					GBDetectModel(gb);
 				}
-#endif
+
+				if (gb->model == GB_MODEL_CGB) {
+					model = GB_MODEL_CGB;
+				}
 			}
-			break;
-		default:
-			return;
+		}
+#endif
+	} break;
+	default:
+		return;
 	}
 
 	switch (model) {
-		case GB_MODEL_AGB:
-			ccLum = GBA_CC_LUM;
-			ccR   = GBA_CC_R;
-			ccG   = GBA_CC_G;
-			ccB   = GBA_CC_B;
-			ccRG  = GBA_CC_RG;
-			ccRB  = GBA_CC_RB;
-			ccGR  = GBA_CC_GR;
-			ccGB  = GBA_CC_GB;
-			ccBR  = GBA_CC_BR;
-			ccBG  = GBA_CC_BG;
-			adjustedGamma = CC_TARGET_GAMMA + GBA_CC_GAMMA_ADJ;
-			break;
-		case GB_MODEL_CGB:
-			ccLum = GBC_CC_LUM;
-			ccR   = GBC_CC_R;
-			ccG   = GBC_CC_G;
-			ccB   = GBC_CC_B;
-			ccRG  = GBC_CC_RG;
-			ccRB  = GBC_CC_RB;
-			ccGR  = GBC_CC_GR;
-			ccGB  = GBC_CC_GB;
-			ccBR  = GBC_CC_BR;
-			ccBG  = GBC_CC_BG;
-			adjustedGamma = CC_TARGET_GAMMA + GBC_CC_GAMMA_ADJ;
-			break;
-		default:
-			return;
+	case GB_MODEL_AGB:
+		ccLum = GBA_CC_LUM;
+		ccR = GBA_CC_R;
+		ccG = GBA_CC_G;
+		ccB = GBA_CC_B;
+		ccRG = GBA_CC_RG;
+		ccRB = GBA_CC_RB;
+		ccGR = GBA_CC_GR;
+		ccGB = GBA_CC_GB;
+		ccBR = GBA_CC_BR;
+		ccBG = GBA_CC_BG;
+		adjustedGamma = CC_TARGET_GAMMA + GBA_CC_GAMMA_ADJ;
+		break;
+	case GB_MODEL_CGB:
+		ccLum = GBC_CC_LUM;
+		ccR = GBC_CC_R;
+		ccG = GBC_CC_G;
+		ccB = GBC_CC_B;
+		ccRG = GBC_CC_RG;
+		ccRB = GBC_CC_RB;
+		ccGR = GBC_CC_GR;
+		ccGB = GBC_CC_GB;
+		ccBR = GBC_CC_BR;
+		ccBG = GBC_CC_BG;
+		adjustedGamma = CC_TARGET_GAMMA + GBC_CC_GAMMA_ADJ;
+		break;
+	default:
+		return;
 	}
 
 	/* Allocate look-up table buffer, if required */
@@ -485,16 +465,16 @@ static void _initColorCorrection(void) {
 		unsigned bFinal = 0;
 		/* Extract values from RGB565 input */
 		const unsigned r = color >> 11 & 0x1F;
-		const unsigned g = color >>  6 & 0x1F;
-		const unsigned b = color       & 0x1F;
+		const unsigned g = color >> 6 & 0x1F;
+		const unsigned b = color & 0x1F;
 		/* Perform gamma expansion */
-		float rFloat = pow((float)r * rgbMaxInv, adjustedGamma);
-		float gFloat = pow((float)g * rgbMaxInv, adjustedGamma);
-		float bFloat = pow((float)b * rgbMaxInv, adjustedGamma);
+		float rFloat = pow((float) r * rgbMaxInv, adjustedGamma);
+		float gFloat = pow((float) g * rgbMaxInv, adjustedGamma);
+		float bFloat = pow((float) b * rgbMaxInv, adjustedGamma);
 		/* Perform colour mangling */
-		float rCorrect = ccLum * ((ccR  * rFloat) + (ccGR * gFloat) + (ccBR * bFloat));
-		float gCorrect = ccLum * ((ccRG * rFloat) + (ccG  * gFloat) + (ccBG * bFloat));
-		float bCorrect = ccLum * ((ccRB * rFloat) + (ccGB * gFloat) + (ccB  * bFloat));
+		float rCorrect = ccLum * ((ccR * rFloat) + (ccGR * gFloat) + (ccBR * bFloat));
+		float gCorrect = ccLum * ((ccRG * rFloat) + (ccG * gFloat) + (ccBG * bFloat));
+		float bCorrect = ccLum * ((ccRB * rFloat) + (ccGB * gFloat) + (ccB * bFloat));
 		/* Range check... */
 		rCorrect = rCorrect > 0.0f ? rCorrect : 0.0f;
 		gCorrect = gCorrect > 0.0f ? gCorrect : 0.0f;
@@ -508,9 +488,9 @@ static void _initColorCorrection(void) {
 		gCorrect = gCorrect > 1.0f ? 1.0f : gCorrect;
 		bCorrect = bCorrect > 1.0f ? 1.0f : bCorrect;
 		/* Convert back to RGB565 */
-		rFinal = (unsigned)((rCorrect * CC_RGB_MAX) + 0.5f) & 0x1F;
-		gFinal = (unsigned)((gCorrect * CC_RGB_MAX) + 0.5f) & 0x1F;
-		bFinal = (unsigned)((bCorrect * CC_RGB_MAX) + 0.5f) & 0x1F;
+		rFinal = (unsigned) ((rCorrect * CC_RGB_MAX) + 0.5f) & 0x1F;
+		gFinal = (unsigned) ((gCorrect * CC_RGB_MAX) + 0.5f) & 0x1F;
+		bFinal = (unsigned) ((bCorrect * CC_RGB_MAX) + 0.5f) & 0x1F;
 		ccLUT[color] = rFinal << 11 | gFinal << 6 | bFinal;
 	}
 }
@@ -549,26 +529,25 @@ static void _loadColorCorrectionSettings(void) {
  *   the response time, hence this 'fake' value */
 #define LCD_RESPONSE_TIME_FAKE 0.5f
 
-enum frame_blend_method
-{
-   FRAME_BLEND_NONE = 0,
-   FRAME_BLEND_MIX,
-   FRAME_BLEND_MIX_SMART,
-   FRAME_BLEND_LCD_GHOSTING,
-   FRAME_BLEND_LCD_GHOSTING_FAST
+enum frame_blend_method {
+	FRAME_BLEND_NONE = 0,
+	FRAME_BLEND_MIX,
+	FRAME_BLEND_MIX_SMART,
+	FRAME_BLEND_LCD_GHOSTING,
+	FRAME_BLEND_LCD_GHOSTING_FAST
 };
 
 static enum frame_blend_method frameBlendType = FRAME_BLEND_NONE;
-static bool frameBlendEnabled                 = false;
-static mColor* outputBufferPrev1              = NULL;
-static mColor* outputBufferPrev2              = NULL;
-static mColor* outputBufferPrev3              = NULL;
-static mColor* outputBufferPrev4              = NULL;
-static float* outputBufferAccR                = NULL;
-static float* outputBufferAccG                = NULL;
-static float* outputBufferAccB                = NULL;
-static float frameBlendResponse[4]            = {0.0f};
-static bool frameBlendResponseSet             = false;
+static bool frameBlendEnabled = false;
+static mColor* outputBufferPrev1 = NULL;
+static mColor* outputBufferPrev2 = NULL;
+static mColor* outputBufferPrev3 = NULL;
+static mColor* outputBufferPrev4 = NULL;
+static float* outputBufferAccR = NULL;
+static float* outputBufferAccG = NULL;
+static float* outputBufferAccB = NULL;
+static float frameBlendResponse[4] = { 0.0f };
+static bool frameBlendResponseSet = false;
 
 static bool _allocateOutputBufferPrev(mColor** buf) {
 	if (!*buf) {
@@ -616,7 +595,6 @@ static bool _allocateOutputBufferAcc(void) {
 }
 
 static void _initFrameBlend(void) {
-
 	frameBlendEnabled = false;
 
 	/* Allocate interframe blending buffers, as required
@@ -624,58 +602,56 @@ static void _initFrameBlend(void) {
 	 * (filled with 0xFF) to avoid drawing garbage on
 	 * the next frame */
 	switch (frameBlendType) {
-		case FRAME_BLEND_MIX:
-			/* Simple 50:50 blending requires a single buffer */
-			if (!_allocateOutputBufferPrev(&outputBufferPrev1)) {
-				return;
-			}
-			break;
-		case FRAME_BLEND_MIX_SMART:
-			/* Smart 50:50 blending requires three buffers */
-			if (!_allocateOutputBufferPrev(&outputBufferPrev1)) {
-				return;
-			}
-			if (!_allocateOutputBufferPrev(&outputBufferPrev2)) {
-				return;
-			}
-			if (!_allocateOutputBufferPrev(&outputBufferPrev3)) {
-				return;
-			}
-			break;
-		case FRAME_BLEND_LCD_GHOSTING:
-			/* 'Accurate' LCD ghosting requires four buffers */
-			if (!_allocateOutputBufferPrev(&outputBufferPrev1)) {
-				return;
-			}
-			if (!_allocateOutputBufferPrev(&outputBufferPrev2)) {
-				return;
-			}
-			if (!_allocateOutputBufferPrev(&outputBufferPrev3)) {
-				return;
-			}
-			if (!_allocateOutputBufferPrev(&outputBufferPrev4)) {
-				return;
-			}
-			break;
-		case FRAME_BLEND_LCD_GHOSTING_FAST:
-			/* 'Fast' LCD ghosting requires three (RGB)
-			 * 'accumulator' buffers */
-			if (!_allocateOutputBufferAcc()) {
-				return;
-			}
-			break;
-		case FRAME_BLEND_NONE:
-		default:
-			/* Error condition - cannot happen
-			 * > Just leave frameBlendEnabled set to false */
+	case FRAME_BLEND_MIX:
+		/* Simple 50:50 blending requires a single buffer */
+		if (!_allocateOutputBufferPrev(&outputBufferPrev1)) {
 			return;
+		}
+		break;
+	case FRAME_BLEND_MIX_SMART:
+		/* Smart 50:50 blending requires three buffers */
+		if (!_allocateOutputBufferPrev(&outputBufferPrev1)) {
+			return;
+		}
+		if (!_allocateOutputBufferPrev(&outputBufferPrev2)) {
+			return;
+		}
+		if (!_allocateOutputBufferPrev(&outputBufferPrev3)) {
+			return;
+		}
+		break;
+	case FRAME_BLEND_LCD_GHOSTING:
+		/* 'Accurate' LCD ghosting requires four buffers */
+		if (!_allocateOutputBufferPrev(&outputBufferPrev1)) {
+			return;
+		}
+		if (!_allocateOutputBufferPrev(&outputBufferPrev2)) {
+			return;
+		}
+		if (!_allocateOutputBufferPrev(&outputBufferPrev3)) {
+			return;
+		}
+		if (!_allocateOutputBufferPrev(&outputBufferPrev4)) {
+			return;
+		}
+		break;
+	case FRAME_BLEND_LCD_GHOSTING_FAST:
+		/* 'Fast' LCD ghosting requires three (RGB)
+		 * 'accumulator' buffers */
+		if (!_allocateOutputBufferAcc()) {
+			return;
+		}
+		break;
+	case FRAME_BLEND_NONE:
+	default:
+		/* Error condition - cannot happen
+		 * > Just leave frameBlendEnabled set to false */
+		return;
 	}
 
 	/* Set LCD ghosting response time factors,
 	 * if required */
-	if ((frameBlendType == FRAME_BLEND_LCD_GHOSTING) &&
-	    !frameBlendResponseSet) {
-
+	if ((frameBlendType == FRAME_BLEND_LCD_GHOSTING) && !frameBlendResponseSet) {
 		/* For the default response time of 0.333,
 		 * only four previous samples are required
 		 * since the response factor for the fifth
@@ -700,7 +676,6 @@ static void _initFrameBlend(void) {
 }
 
 static void _loadFrameBlendSettings(void) {
-
 	struct retro_variable var;
 	enum frame_blend_method oldFrameBlendType = frameBlendType;
 	frameBlendType = FRAME_BLEND_NONE;
@@ -738,9 +713,8 @@ static void (*videoPostProcess)(unsigned width, unsigned height) = NULL;
  *   This code is performance-critical, so we want to
  *   minimise logic in the inner loops where possible  */
 static void videoPostProcessCc(unsigned width, unsigned height) {
-
-	mColor *src = outputBuffer;
-	mColor *dst = ppOutputBuffer;
+	mColor* src = outputBuffer;
+	mColor* dst = ppOutputBuffer;
 	size_t x, y;
 
 	for (y = 0; y < height; y++) {
@@ -753,15 +727,13 @@ static void videoPostProcessCc(unsigned width, unsigned height) {
 }
 
 static void videoPostProcessMix(unsigned width, unsigned height) {
-
-	mColor *srcCurr = outputBuffer;
-	mColor *srcPrev = outputBufferPrev1;
-	mColor *dst     = ppOutputBuffer;
+	mColor* srcCurr = outputBuffer;
+	mColor* srcPrev = outputBufferPrev1;
+	mColor* dst = ppOutputBuffer;
 	size_t x, y;
 
 	for (y = 0; y < height; y++) {
 		for (x = 0; x < width; x++) {
-
 			/* Get colours from current + previous frames */
 			mColor rgbCurr = *(srcCurr + x);
 			mColor rgbPrev = *(srcPrev + x);
@@ -772,32 +744,29 @@ static void videoPostProcessMix(unsigned width, unsigned height) {
 			/* Mix colours
 			 * > "Mixing Packed RGB Pixels Efficiently"
 			 *   http://blargg.8bitalley.com/info/rgb_mixing.html */
-			mColor rgbMix  = (rgbCurr + rgbPrev + ((rgbCurr ^ rgbPrev) & 0x821)) >> 1;
+			mColor rgbMix = (rgbCurr + rgbPrev + ((rgbCurr ^ rgbPrev) & 0x821)) >> 1;
 
 			/* Assign colours for current frame */
-			*(dst + x)      = colorCorrectionEnabled ?
-					*(ccLUT + rgbMix) : rgbMix;
+			*(dst + x) = colorCorrectionEnabled ? *(ccLUT + rgbMix) : rgbMix;
 		}
 		srcCurr += VIDEO_WIDTH_MAX;
 		srcPrev += VIDEO_WIDTH_MAX;
-		dst     += VIDEO_WIDTH_MAX;
+		dst += VIDEO_WIDTH_MAX;
 	}
 }
 
 static void videoPostProcessMixSmart(unsigned width, unsigned height) {
-
-	mColor *srcCurr  = outputBuffer;
-	mColor *srcPrev1 = outputBufferPrev1;
-	mColor *srcPrev2 = outputBufferPrev2;
-	mColor *srcPrev3 = outputBufferPrev3;
-	mColor *dst      = ppOutputBuffer;
+	mColor* srcCurr = outputBuffer;
+	mColor* srcPrev1 = outputBufferPrev1;
+	mColor* srcPrev2 = outputBufferPrev2;
+	mColor* srcPrev3 = outputBufferPrev3;
+	mColor* dst = ppOutputBuffer;
 	size_t x, y;
 
 	for (y = 0; y < height; y++) {
 		for (x = 0; x < width; x++) {
-
 			/* Get colours from current + previous frames */
-			mColor rgbCurr  = *(srcCurr + x);
+			mColor rgbCurr = *(srcCurr + x);
 			mColor rgbPrev1 = *(srcPrev1 + x);
 			mColor rgbPrev2 = *(srcPrev2 + x);
 			mColor rgbPrev3 = *(srcPrev3 + x);
@@ -810,50 +779,43 @@ static void videoPostProcessMixSmart(unsigned width, unsigned height) {
 			/* Determine whether mixing is required
 			 * i.e. whether alternate frames have the same pixel colour,
 			 * but adjacent frames do not */
-			if (((rgbCurr == rgbPrev2) || (rgbPrev1 == rgbPrev3)) &&
-				 (rgbCurr != rgbPrev1) &&
-				 (rgbCurr != rgbPrev3) &&
-				 (rgbPrev1 != rgbPrev2)) {
-
+			if (((rgbCurr == rgbPrev2) || (rgbPrev1 == rgbPrev3)) && (rgbCurr != rgbPrev1) && (rgbCurr != rgbPrev3) &&
+			    (rgbPrev1 != rgbPrev2)) {
 				/* Mix colours
 				 * > "Mixing Packed RGB Pixels Efficiently"
 				 *   http://blargg.8bitalley.com/info/rgb_mixing.html */
 				mColor rgbMix = (rgbCurr + rgbPrev1 + ((rgbCurr ^ rgbPrev1) & 0x821)) >> 1;
 
 				/* Assign colours for current frame */
-				*(dst + x) = colorCorrectionEnabled ?
-						*(ccLUT + rgbMix) : rgbMix;
+				*(dst + x) = colorCorrectionEnabled ? *(ccLUT + rgbMix) : rgbMix;
 
 			} else {
 				/* Just use colours for current frame */
-				*(dst + x) = colorCorrectionEnabled ?
-						*(ccLUT + rgbCurr) :	rgbCurr;
+				*(dst + x) = colorCorrectionEnabled ? *(ccLUT + rgbCurr) : rgbCurr;
 			}
 		}
-		srcCurr  += VIDEO_WIDTH_MAX;
+		srcCurr += VIDEO_WIDTH_MAX;
 		srcPrev1 += VIDEO_WIDTH_MAX;
 		srcPrev2 += VIDEO_WIDTH_MAX;
 		srcPrev3 += VIDEO_WIDTH_MAX;
-		dst      += VIDEO_WIDTH_MAX;
+		dst += VIDEO_WIDTH_MAX;
 	}
 }
 
 static void videoPostProcessLcdGhost(unsigned width, unsigned height) {
-
-	mColor *srcCurr  = outputBuffer;
-	mColor *srcPrev1 = outputBufferPrev1;
-	mColor *srcPrev2 = outputBufferPrev2;
-	mColor *srcPrev3 = outputBufferPrev3;
-	mColor *srcPrev4 = outputBufferPrev4;
-	mColor *dst      = ppOutputBuffer;
-	float *response  = frameBlendResponse;
+	mColor* srcCurr = outputBuffer;
+	mColor* srcPrev1 = outputBufferPrev1;
+	mColor* srcPrev2 = outputBufferPrev2;
+	mColor* srcPrev3 = outputBufferPrev3;
+	mColor* srcPrev4 = outputBufferPrev4;
+	mColor* dst = ppOutputBuffer;
+	float* response = frameBlendResponse;
 	size_t x, y;
 
 	for (y = 0; y < height; y++) {
 		for (x = 0; x < width; x++) {
-
 			/* Get colours from current + previous frames */
-			mColor rgbCurr  = *(srcCurr + x);
+			mColor rgbCurr = *(srcCurr + x);
 			mColor rgbPrev1 = *(srcPrev1 + x);
 			mColor rgbPrev2 = *(srcPrev2 + x);
 			mColor rgbPrev3 = *(srcPrev3 + x);
@@ -866,85 +828,83 @@ static void videoPostProcessLcdGhost(unsigned width, unsigned height) {
 			*(srcPrev4 + x) = rgbPrev3;
 
 			/* Unpack colours and convert to float */
-			float rCurr = (float)(rgbCurr >> 11 & 0x1F);
-			float gCurr = (float)(rgbCurr >>  6 & 0x1F);
-			float bCurr = (float)(rgbCurr       & 0x1F);
+			float rCurr = (float) (rgbCurr >> 11 & 0x1F);
+			float gCurr = (float) (rgbCurr >> 6 & 0x1F);
+			float bCurr = (float) (rgbCurr & 0x1F);
 
-			float rPrev1 = (float)(rgbPrev1 >> 11 & 0x1F);
-			float gPrev1 = (float)(rgbPrev1 >>  6 & 0x1F);
-			float bPrev1 = (float)(rgbPrev1       & 0x1F);
+			float rPrev1 = (float) (rgbPrev1 >> 11 & 0x1F);
+			float gPrev1 = (float) (rgbPrev1 >> 6 & 0x1F);
+			float bPrev1 = (float) (rgbPrev1 & 0x1F);
 
-			float rPrev2 = (float)(rgbPrev2 >> 11 & 0x1F);
-			float gPrev2 = (float)(rgbPrev2 >>  6 & 0x1F);
-			float bPrev2 = (float)(rgbPrev2       & 0x1F);
+			float rPrev2 = (float) (rgbPrev2 >> 11 & 0x1F);
+			float gPrev2 = (float) (rgbPrev2 >> 6 & 0x1F);
+			float bPrev2 = (float) (rgbPrev2 & 0x1F);
 
-			float rPrev3 = (float)(rgbPrev3 >> 11 & 0x1F);
-			float gPrev3 = (float)(rgbPrev3 >>  6 & 0x1F);
-			float bPrev3 = (float)(rgbPrev3       & 0x1F);
+			float rPrev3 = (float) (rgbPrev3 >> 11 & 0x1F);
+			float gPrev3 = (float) (rgbPrev3 >> 6 & 0x1F);
+			float bPrev3 = (float) (rgbPrev3 & 0x1F);
 
-			float rPrev4 = (float)(rgbPrev4 >> 11 & 0x1F);
-			float gPrev4 = (float)(rgbPrev4 >>  6 & 0x1F);
-			float bPrev4 = (float)(rgbPrev4       & 0x1F);
+			float rPrev4 = (float) (rgbPrev4 >> 11 & 0x1F);
+			float gPrev4 = (float) (rgbPrev4 >> 6 & 0x1F);
+			float bPrev4 = (float) (rgbPrev4 & 0x1F);
 
 			/* Mix colours for current frame and convert back to mColor
 			 * > Response time effect implemented via an exponential
 			 *   drop-off algorithm, taken from the 'Gameboy Classic Shader'
 			 *   by Harlequin:
-			 *      https://github.com/libretro/glsl-shaders/blob/master/handheld/shaders/gameboy/shader-files/gb-pass0.glsl */
+			 *      https://github.com/libretro/glsl-shaders/blob/master/handheld/shaders/gameboy/shader-files/gb-pass0.glsl
+			 */
 			rCurr += (rPrev1 - rCurr) * *response;
 			rCurr += (rPrev2 - rCurr) * *(response + 1);
 			rCurr += (rPrev3 - rCurr) * *(response + 2);
 			rCurr += (rPrev4 - rCurr) * *(response + 3);
-			mColor rMix = (mColor)(rCurr + 0.5f) & 0x1F;
+			mColor rMix = (mColor) (rCurr + 0.5f) & 0x1F;
 
 			gCurr += (gPrev1 - gCurr) * *response;
 			gCurr += (gPrev2 - gCurr) * *(response + 1);
 			gCurr += (gPrev3 - gCurr) * *(response + 2);
 			gCurr += (gPrev4 - gCurr) * *(response + 3);
-			mColor gMix = (mColor)(gCurr + 0.5f) & 0x1F;
+			mColor gMix = (mColor) (gCurr + 0.5f) & 0x1F;
 
 			bCurr += (bPrev1 - bCurr) * *response;
 			bCurr += (bPrev2 - bCurr) * *(response + 1);
 			bCurr += (bPrev3 - bCurr) * *(response + 2);
 			bCurr += (bPrev4 - bCurr) * *(response + 3);
-			mColor bMix = (mColor)(bCurr + 0.5f) & 0x1F;
+			mColor bMix = (mColor) (bCurr + 0.5f) & 0x1F;
 
 			/* Repack colours for current frame */
-			*(dst + x) = colorCorrectionEnabled ?
-					*(ccLUT + (rMix << 11 | gMix << 6 | bMix)) :
-							rMix << 11 | gMix << 6 | bMix;
+			*(dst + x) =
+			    colorCorrectionEnabled ? *(ccLUT + (rMix << 11 | gMix << 6 | bMix)) : rMix << 11 | gMix << 6 | bMix;
 		}
-		srcCurr  += VIDEO_WIDTH_MAX;
+		srcCurr += VIDEO_WIDTH_MAX;
 		srcPrev1 += VIDEO_WIDTH_MAX;
 		srcPrev2 += VIDEO_WIDTH_MAX;
 		srcPrev3 += VIDEO_WIDTH_MAX;
 		srcPrev4 += VIDEO_WIDTH_MAX;
-		dst      += VIDEO_WIDTH_MAX;
+		dst += VIDEO_WIDTH_MAX;
 	}
 }
 
 static void videoPostProcessLcdGhostFast(unsigned width, unsigned height) {
-
-	mColor *srcCurr = outputBuffer;
-	float *srcPrevR = outputBufferAccR;
-	float *srcPrevG = outputBufferAccG;
-	float *srcPrevB = outputBufferAccB;
-	mColor *dst     = ppOutputBuffer;
+	mColor* srcCurr = outputBuffer;
+	float* srcPrevR = outputBufferAccR;
+	float* srcPrevG = outputBufferAccG;
+	float* srcPrevB = outputBufferAccB;
+	mColor* dst = ppOutputBuffer;
 	size_t x, y;
 
 	for (y = 0; y < height; y++) {
 		for (x = 0; x < width; x++) {
-
 			/* Get colours from current + previous frames */
 			mColor rgbCurr = *(srcCurr + x);
-			float rPrev    = *(srcPrevR + x);
-			float gPrev    = *(srcPrevG + x);
-			float bPrev    = *(srcPrevB + x);
+			float rPrev = *(srcPrevR + x);
+			float gPrev = *(srcPrevG + x);
+			float bPrev = *(srcPrevB + x);
 
 			/* Unpack current colours and convert to float */
-			float rCurr = (float)(rgbCurr >> 11 & 0x1F);
-			float gCurr = (float)(rgbCurr >>  6 & 0x1F);
-			float bCurr = (float)(rgbCurr       & 0x1F);
+			float rCurr = (float) (rgbCurr >> 11 & 0x1F);
+			float gCurr = (float) (rgbCurr >> 6 & 0x1F);
+			float bCurr = (float) (rgbCurr & 0x1F);
 
 			/* Mix colours for current frame */
 			float rMix = (rCurr * (1.0f - LCD_RESPONSE_TIME_FAKE)) + (LCD_RESPONSE_TIME_FAKE * rPrev);
@@ -957,24 +917,21 @@ static void videoPostProcessLcdGhostFast(unsigned width, unsigned height) {
 			*(srcPrevB + x) = bMix;
 
 			/* Convert and repack current frame colours */
-			mColor rgbMix =   ((mColor)(rMix + 0.5f) & 0x1F) << 11
-								  | ((mColor)(gMix + 0.5f) & 0x1F) << 6
-								  | ((mColor)(bMix + 0.5f) & 0x1F);
+			mColor rgbMix = ((mColor) (rMix + 0.5f) & 0x1F) << 11 | ((mColor) (gMix + 0.5f) & 0x1F) << 6 |
+			    ((mColor) (bMix + 0.5f) & 0x1F);
 
 			/* Assign colours for current frame */
-			*(dst + x) = colorCorrectionEnabled ?
-					*(ccLUT + rgbMix) : rgbMix;
+			*(dst + x) = colorCorrectionEnabled ? *(ccLUT + rgbMix) : rgbMix;
 		}
-		srcCurr  += VIDEO_WIDTH_MAX;
+		srcCurr += VIDEO_WIDTH_MAX;
 		srcPrevR += VIDEO_WIDTH_MAX;
 		srcPrevG += VIDEO_WIDTH_MAX;
 		srcPrevB += VIDEO_WIDTH_MAX;
-		dst      += VIDEO_WIDTH_MAX;
+		dst += VIDEO_WIDTH_MAX;
 	}
 }
 
 static void _initPostProcessing(void) {
-
 	/* Early return if all post processing elements
 	 * are disabled */
 	videoPostProcess = NULL;
@@ -998,24 +955,23 @@ static void _initPostProcessing(void) {
 	/* Assign post processing function */
 	if (frameBlendEnabled) {
 		switch (frameBlendType) {
-			case FRAME_BLEND_MIX:
-				videoPostProcess = videoPostProcessMix;
-				return;
-			case FRAME_BLEND_MIX_SMART:
-				videoPostProcess = videoPostProcessMixSmart;
-				return;
-			case FRAME_BLEND_LCD_GHOSTING:
-				videoPostProcess = videoPostProcessLcdGhost;
-				return;
-			case FRAME_BLEND_LCD_GHOSTING_FAST:
-				videoPostProcess = videoPostProcessLcdGhostFast;
-				return;
-			case FRAME_BLEND_NONE:
-			default:
-				/* Cannot happen */
-				videoPostProcess = colorCorrectionEnabled ?
-						videoPostProcessCc : NULL;
-				return;
+		case FRAME_BLEND_MIX:
+			videoPostProcess = videoPostProcessMix;
+			return;
+		case FRAME_BLEND_MIX_SMART:
+			videoPostProcess = videoPostProcessMixSmart;
+			return;
+		case FRAME_BLEND_LCD_GHOSTING:
+			videoPostProcess = videoPostProcessLcdGhost;
+			return;
+		case FRAME_BLEND_LCD_GHOSTING_FAST:
+			videoPostProcess = videoPostProcessLcdGhostFast;
+			return;
+		case FRAME_BLEND_NONE:
+		default:
+			/* Cannot happen */
+			videoPostProcess = colorCorrectionEnabled ? videoPostProcessCc : NULL;
+			return;
 		}
 	} else if (colorCorrectionEnabled) {
 		videoPostProcess = videoPostProcessCc;
@@ -1023,7 +979,6 @@ static void _initPostProcessing(void) {
 }
 
 static void _loadPostProcessingSettings(void) {
-
 	/* Load settings and initialise individual
 	 * post processing elements */
 	_loadColorCorrectionSettings();
@@ -1035,12 +990,11 @@ static void _loadPostProcessingSettings(void) {
 }
 
 static void _deinitPostProcessing(void) {
-
-	ccType                 = 0;
-	frameBlendType         = FRAME_BLEND_NONE;
+	ccType = 0;
+	frameBlendType = FRAME_BLEND_NONE;
 	colorCorrectionEnabled = false;
-	frameBlendEnabled      = false;
-	videoPostProcess       = NULL;
+	frameBlendEnabled = false;
+	videoPostProcess = NULL;
 
 	/* Free all allocated buffers */
 	if (ppOutputBuffer) {
@@ -1275,8 +1229,8 @@ static void _doDeferredSetup(void) {
 	// Here's that workaround, but really the API needs to be thrown out and rewritten.
 	struct VFile* save = VFileFromMemory(savedata, GBA_SIZE_FLASH1M);
 
-    /* need to defer resetting the core on start so drivers are initialized */
-    core->reset(core);
+	/* need to defer resetting the core on start so drivers are initialized */
+	core->reset(core);
 	_setupMaps(core);
 
 #if defined(COLOR_16_BIT) && defined(COLOR_5_6_5)
@@ -1293,8 +1247,7 @@ unsigned retro_api_version(void) {
 	return RETRO_API_VERSION;
 }
 
-void retro_set_environment(retro_environment_t env)
-{
+void retro_set_environment(retro_environment_t env) {
 	environCallback = env;
 
 #ifdef M_CORE_GB
@@ -1464,15 +1417,15 @@ void retro_init(void) {
 	if (environCallback(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
 		libretro_supports_bitmasks = true;
 
-	frameskipType           = 0;
-	frameskipThreshold      = 0;
-	frameskipCounter        = 0;
-	retroAudioBuffActive    = false;
+	frameskipType = 0;
+	frameskipThreshold = 0;
+	frameskipCounter = 0;
+	retroAudioBuffActive = false;
 	retroAudioBuffOccupancy = 0;
-	retroAudioBuffUnderrun  = false;
-	retroAudioLatency       = 0;
-	updateAudioLatency      = false;
-	updateAudioRate         = false;
+	retroAudioBuffUnderrun = false;
+	retroAudioLatency = 0;
+	updateAudioLatency = false;
+	updateAudioRate = false;
 }
 
 void retro_deinit(void) {
@@ -1560,10 +1513,7 @@ void retro_run(void) {
 	if (environCallback(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && updated) {
 		envVarsUpdated = true;
 
-		struct retro_variable var = {
-			.key = "mgba_allow_opposing_directions",
-			.value = 0
-		};
+		struct retro_variable var = { .key = "mgba_allow_opposing_directions", .value = 0 };
 		if (environCallback(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
 			mCoreConfigSetIntValue(&core->config, "allowOpposingDirections", strcmp(var.value, "yes") == 0);
 			core->reloadConfigOption(core, "allowOpposingDirections", NULL);
@@ -1588,20 +1538,19 @@ void retro_run(void) {
 			keys |= ((joypadMask >> keymap[i]) & 1) << i;
 		}
 		// XXX: turbo keys, should be moved to frontend
-#define JOYPAD_BIT(BUTTON) (1 << RETRO_DEVICE_ID_JOYPAD_ ## BUTTON)
-		keys |= cycleturbo(joypadMask & JOYPAD_BIT(X), joypadMask & JOYPAD_BIT(Y), joypadMask & JOYPAD_BIT(L2), joypadMask & JOYPAD_BIT(R2));
+#define JOYPAD_BIT(BUTTON) (1 << RETRO_DEVICE_ID_JOYPAD_##BUTTON)
+		keys |= cycleturbo(joypadMask & JOYPAD_BIT(X), joypadMask & JOYPAD_BIT(Y), joypadMask & JOYPAD_BIT(L2),
+		                   joypadMask & JOYPAD_BIT(R2));
 #undef JOYPAD_BIT
 	} else {
 		for (i = 0; i < sizeof(keymap) / sizeof(*keymap); ++i) {
 			keys |= (!!inputCallback(0, RETRO_DEVICE_JOYPAD, 0, keymap[i])) << i;
 		}
 		// XXX: turbo keys, should be moved to frontend
-		keys |= cycleturbo(
-			inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X),
-			inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y),
-			inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2),
-			inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2)
-		);
+		keys |= cycleturbo(inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X),
+		                   inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y),
+		                   inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2),
+		                   inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2));
 	}
 
 	core->setKeys(core, keys);
@@ -1610,7 +1559,7 @@ void retro_run(void) {
 		static bool wasAdjustingLux = false;
 		if (wasAdjustingLux) {
 			wasAdjustingLux = inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3) ||
-			                  inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3);
+			    inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3);
 		} else {
 			if (inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3)) {
 				++luxLevelIndex;
@@ -1630,25 +1579,22 @@ void retro_run(void) {
 
 	/* Check whether current frame should
 	 * be skipped */
-	if ((frameskipType > 0)  &&
-		 (frameskipType != 3) && /* Ignore 'Fixed Interval' - handled internally */
-		 retroAudioBuffActive) {
-
+	if ((frameskipType > 0) && (frameskipType != 3) && /* Ignore 'Fixed Interval' - handled internally */
+	    retroAudioBuffActive) {
 		switch (frameskipType) {
-			case 1: /* Auto */
-				skipFrame = retroAudioBuffUnderrun;
-				break;
-			case 2: /* Auto (Threshold) */
-				skipFrame = (retroAudioBuffOccupancy < frameskipThreshold);
-				break;
-			default:
-				skipFrame = false;
-				break;
+		case 1: /* Auto */
+			skipFrame = retroAudioBuffUnderrun;
+			break;
+		case 2: /* Auto (Threshold) */
+			skipFrame = (retroAudioBuffOccupancy < frameskipThreshold);
+			break;
+		default:
+			skipFrame = false;
+			break;
 		}
 
 		if (skipFrame) {
-			if(frameskipCounter < RETRO_FRAMESKIP_MAX) {
-
+			if (frameskipCounter < RETRO_FRAMESKIP_MAX) {
 				switch (core->platform(core)) {
 #ifdef M_CORE_GBA
 				case mPLATFORM_GBA:
@@ -1667,21 +1613,19 @@ void retro_run(void) {
 
 			} else {
 				frameskipCounter = 0;
-				skipFrame        = false;
+				skipFrame = false;
 			}
 		} else {
 			frameskipCounter = 0;
 		}
 	}
 
-   /* If frameskip settings have changed, update
-    * frontend audio latency */
-   if (updateAudioLatency)
-   {
-      environCallback(RETRO_ENVIRONMENT_SET_MINIMUM_AUDIO_LATENCY,
-            &retroAudioLatency);
-      updateAudioLatency = false;
-   }
+	/* If frameskip settings have changed, update
+	 * frontend audio latency */
+	if (updateAudioLatency) {
+		environCallback(RETRO_ENVIRONMENT_SET_MINIMUM_AUDIO_LATENCY, &retroAudioLatency);
+		updateAudioLatency = false;
+	}
 
 	core->runFrame(core);
 	unsigned width, height;
@@ -1691,16 +1635,16 @@ void retro_run(void) {
 	 * whether a frame is currently available  */
 	if (frameskipType == 3) {
 		switch (core->platform(core)) {
-	#ifdef M_CORE_GBA
+#ifdef M_CORE_GBA
 		case mPLATFORM_GBA:
 			skipFrame = ((struct GBA*) core->board)->video.frameskipCounter > 0;
 			break;
-	#endif
-	#ifdef M_CORE_GB
+#endif
+#ifdef M_CORE_GB
 		case mPLATFORM_GB:
 			skipFrame = ((struct GB*) core->board)->video.frameskipCounter > 0;
 			break;
-	#endif
+#endif
 		default:
 			break;
 		}
@@ -1728,28 +1672,28 @@ void retro_run(void) {
 
 #ifdef M_CORE_GBA
 	if (core->platform(core) == mPLATFORM_GBA) {
-		struct mAudioBuffer *coreBuffer = core->getAudioBuffer(core);
-        int coreSamplesAvail = mAudioBufferAvailable(coreBuffer);
-        if (coreSamplesAvail > 0) {
-            unsigned coreSampleRate = core->audioSampleRate(core);
-            size_t samplesProduced;
-            if (coreSampleRate != targetSampleRate) {
-                /* Resample generated audio */
-                mAudioResamplerSetSource(&audioResampler, coreBuffer, coreSampleRate, true);
-                mAudioResamplerProcess(&audioResampler);
-                /* Output resampled audio */
-                size_t samplesAvail = mAudioBufferAvailable(&audioResampleBuffer);
-                samplesProduced = mAudioBufferRead(&audioResampleBuffer, audioSampleBuffer, samplesAvail);
-            } else {
-                samplesProduced = mAudioBufferRead(coreBuffer, audioSampleBuffer, coreSamplesAvail);
-            }
-            if (samplesProduced > 0) {
-                if (audioLowPassEnabled) {
-                    _audioLowPassFilter(audioSampleBuffer, samplesProduced);
-                }
-                audioCallback(audioSampleBuffer, samplesProduced);
-            }
-        }
+		struct mAudioBuffer* coreBuffer = core->getAudioBuffer(core);
+		int coreSamplesAvail = mAudioBufferAvailable(coreBuffer);
+		if (coreSamplesAvail > 0) {
+			unsigned coreSampleRate = core->audioSampleRate(core);
+			size_t samplesProduced;
+			if (coreSampleRate != targetSampleRate) {
+				/* Resample generated audio */
+				mAudioResamplerSetSource(&audioResampler, coreBuffer, coreSampleRate, true);
+				mAudioResamplerProcess(&audioResampler);
+				/* Output resampled audio */
+				size_t samplesAvail = mAudioBufferAvailable(&audioResampleBuffer);
+				samplesProduced = mAudioBufferRead(&audioResampleBuffer, audioSampleBuffer, samplesAvail);
+			} else {
+				samplesProduced = mAudioBufferRead(coreBuffer, audioSampleBuffer, coreSamplesAvail);
+			}
+			if (samplesProduced > 0) {
+				if (audioLowPassEnabled) {
+					_audioLowPassFilter(audioSampleBuffer, samplesProduced);
+				}
+				audioCallback(audioSampleBuffer, samplesProduced);
+			}
+		}
 	}
 #endif
 }
@@ -1766,69 +1710,69 @@ static void _setupMaps(struct mCore* core) {
 		size_t savedataSize = retro_get_memory_size(RETRO_MEMORY_SAVE_RAM);
 
 		/* Map internal working RAM */
-		descs[0].ptr    = gba->memory.iwram;
-		descs[0].start  = GBA_BASE_IWRAM;
-		descs[0].len    = GBA_SIZE_IWRAM;
+		descs[0].ptr = gba->memory.iwram;
+		descs[0].start = GBA_BASE_IWRAM;
+		descs[0].len = GBA_SIZE_IWRAM;
 		descs[0].select = 0xFF000000;
-		descs[0].flags  = RETRO_MEMDESC_SYSTEM_RAM; // Allow RetroArch to access this memory for cheats
+		descs[0].flags = RETRO_MEMDESC_SYSTEM_RAM; // Allow RetroArch to access this memory for cheats
 
 		/* Map working RAM */
-		descs[1].ptr    = gba->memory.wram;
-		descs[1].start  = GBA_BASE_EWRAM;
-		descs[1].len    = GBA_SIZE_EWRAM;
+		descs[1].ptr = gba->memory.wram;
+		descs[1].start = GBA_BASE_EWRAM;
+		descs[1].len = GBA_SIZE_EWRAM;
 		descs[1].select = 0xFF000000;
-		descs[1].flags  = RETRO_MEMDESC_SYSTEM_RAM; // Allow RetroArch to access this memory for cheats
+		descs[1].flags = RETRO_MEMDESC_SYSTEM_RAM; // Allow RetroArch to access this memory for cheats
 
 		/* Map save RAM */
 		/* TODO: if SRAM is flash, use start=0 addrspace="S" instead */
-		descs[2].ptr    = savedataSize ? savedata : NULL;
-		descs[2].start  = GBA_BASE_SRAM;
-		descs[2].len    = savedataSize;
+		descs[2].ptr = savedataSize ? savedata : NULL;
+		descs[2].start = GBA_BASE_SRAM;
+		descs[2].len = savedataSize;
 
 		/* Map ROM */
-		descs[3].ptr    = gba->memory.rom;
-		descs[3].start  = GBA_BASE_ROM0;
-		descs[3].len    = romSize;
-		descs[3].flags  = RETRO_MEMDESC_CONST;
+		descs[3].ptr = gba->memory.rom;
+		descs[3].start = GBA_BASE_ROM0;
+		descs[3].len = romSize;
+		descs[3].flags = RETRO_MEMDESC_CONST;
 
-		descs[4].ptr    = gba->memory.rom;
-		descs[4].start  = GBA_BASE_ROM1;
-		descs[4].len    = romSize;
-		descs[4].flags  = RETRO_MEMDESC_CONST;
+		descs[4].ptr = gba->memory.rom;
+		descs[4].start = GBA_BASE_ROM1;
+		descs[4].len = romSize;
+		descs[4].flags = RETRO_MEMDESC_CONST;
 
-		descs[5].ptr    = gba->memory.rom;
-		descs[5].start  = GBA_BASE_ROM2;
-		descs[5].len    = romSize;
-		descs[5].flags  = RETRO_MEMDESC_CONST;
+		descs[5].ptr = gba->memory.rom;
+		descs[5].start = GBA_BASE_ROM2;
+		descs[5].len = romSize;
+		descs[5].flags = RETRO_MEMDESC_CONST;
 
 		/* Map BIOS */
-		descs[6].ptr    = gba->memory.bios;
-		descs[6].start  = GBA_BASE_BIOS;
-		descs[6].len    = GBA_SIZE_BIOS;
-		descs[6].flags  = RETRO_MEMDESC_CONST;
+		descs[6].ptr = gba->memory.bios;
+		descs[6].start = GBA_BASE_BIOS;
+		descs[6].len = GBA_SIZE_BIOS;
+		descs[6].flags = RETRO_MEMDESC_CONST;
 
 		/* Map VRAM */
-		descs[7].ptr    = gba->video.vram;
-		descs[7].start  = GBA_BASE_VRAM;
-		descs[7].len    = GBA_SIZE_VRAM;
+		descs[7].ptr = gba->video.vram;
+		descs[7].start = GBA_BASE_VRAM;
+		descs[7].len = GBA_SIZE_VRAM;
 		descs[7].select = 0xFF000000;
 
 		/* Map palette RAM */
-		descs[8].ptr    = gba->video.palette;
-		descs[8].start  = GBA_BASE_PALETTE_RAM;
-		descs[8].len    = GBA_SIZE_PALETTE_RAM;
+		descs[8].ptr = gba->video.palette;
+		descs[8].start = GBA_BASE_PALETTE_RAM;
+		descs[8].len = GBA_SIZE_PALETTE_RAM;
 		descs[8].select = 0xFF000000;
 
 		/* Map OAM */
-		descs[9].ptr    = &gba->video.oam; /* video.oam is a structure */
-		descs[9].start  = GBA_BASE_OAM;
-		descs[9].len    = GBA_SIZE_OAM;
+		descs[9].ptr = &gba->video.oam; /* video.oam is a structure */
+		descs[9].start = GBA_BASE_OAM;
+		descs[9].len = GBA_SIZE_OAM;
 		descs[9].select = 0xFF000000;
 
 		/* Map mmapped I/O */
-		descs[10].ptr    = gba->memory.io;
-		descs[10].start  = GBA_BASE_IO;
-		descs[10].len    = GBA_SIZE_IO;
+		descs[10].ptr = gba->memory.io;
+		descs[10].start = GBA_BASE_IO;
+		descs[10].len = GBA_SIZE_IO;
 
 		mmaps.descriptors = descs;
 		mmaps.num_descriptors = sizeof(descs) / sizeof(descs[0]);
@@ -1850,78 +1794,78 @@ static void _setupMaps(struct mCore* core) {
 		unsigned i = 0;
 
 		/* Map ROM */
-		descs[i].ptr    = gb->memory.rom;
-		descs[i].start  = GB_BASE_CART_BANK0;
-		descs[i].len    = GB_SIZE_CART_BANK0;
-		descs[i].flags  = RETRO_MEMDESC_CONST;
+		descs[i].ptr = gb->memory.rom;
+		descs[i].start = GB_BASE_CART_BANK0;
+		descs[i].len = GB_SIZE_CART_BANK0;
+		descs[i].flags = RETRO_MEMDESC_CONST;
 		i++;
 
-		descs[i].ptr    = gb->memory.rom;
+		descs[i].ptr = gb->memory.rom;
 		descs[i].offset = GB_SIZE_CART_BANK0;
-		descs[i].start  = GB_BASE_CART_BANK1;
-		descs[i].len    = GB_SIZE_CART_BANK0;
-		descs[i].flags  = RETRO_MEMDESC_CONST;
+		descs[i].start = GB_BASE_CART_BANK1;
+		descs[i].len = GB_SIZE_CART_BANK0;
+		descs[i].flags = RETRO_MEMDESC_CONST;
 		i++;
 
 		/* Map VRAM */
-		descs[i].ptr    = gb->video.vram;
-		descs[i].start  = GB_BASE_VRAM;
-		descs[i].len    = GB_SIZE_VRAM_BANK0;
+		descs[i].ptr = gb->video.vram;
+		descs[i].start = GB_BASE_VRAM;
+		descs[i].len = GB_SIZE_VRAM_BANK0;
 		i++;
 
 		/* Map working RAM */
-		descs[i].ptr    = gb->memory.wram;
-		descs[i].start  = GB_BASE_WORKING_RAM_BANK0;
-		descs[i].len    = GB_SIZE_WORKING_RAM_BANK0;
-		descs[i].flags  = RETRO_MEMDESC_SYSTEM_RAM;  // Allow RetroArch to access this memory for cheats
+		descs[i].ptr = gb->memory.wram;
+		descs[i].start = GB_BASE_WORKING_RAM_BANK0;
+		descs[i].len = GB_SIZE_WORKING_RAM_BANK0;
+		descs[i].flags = RETRO_MEMDESC_SYSTEM_RAM; // Allow RetroArch to access this memory for cheats
 		i++;
 
-		descs[i].ptr    = gb->memory.wram;
+		descs[i].ptr = gb->memory.wram;
 		descs[i].offset = GB_SIZE_WORKING_RAM_BANK0;
-		descs[i].start  = GB_BASE_WORKING_RAM_BANK1;
-		descs[i].len    = GB_SIZE_WORKING_RAM_BANK0;
-		descs[i].flags  = RETRO_MEMDESC_SYSTEM_RAM; // Allow RetroArch to access this memory for cheats
+		descs[i].start = GB_BASE_WORKING_RAM_BANK1;
+		descs[i].len = GB_SIZE_WORKING_RAM_BANK0;
+		descs[i].flags = RETRO_MEMDESC_SYSTEM_RAM; // Allow RetroArch to access this memory for cheats
 		i++;
 
 		/* Map OAM */
-		descs[i].ptr    = &gb->video.oam; /* video.oam is a structure */
-		descs[i].start  = GB_BASE_OAM;
-		descs[i].len    = GB_SIZE_OAM;
+		descs[i].ptr = &gb->video.oam; /* video.oam is a structure */
+		descs[i].start = GB_BASE_OAM;
+		descs[i].len = GB_SIZE_OAM;
 		descs[i].select = 0xFFFFFF60;
 		i++;
 
 		/* Map mmapped I/O */
-		descs[i].ptr    = gb->memory.io;
-		descs[i].start  = GB_BASE_IO;
-		descs[i].len    = GB_SIZE_IO;
+		descs[i].ptr = gb->memory.io;
+		descs[i].start = GB_BASE_IO;
+		descs[i].len = GB_SIZE_IO;
 		i++;
 
 		/* Map High RAM */
-		descs[i].ptr    = gb->memory.hram;
-		descs[i].start  = GB_BASE_HRAM;
-		descs[i].len    = GB_SIZE_HRAM;
+		descs[i].ptr = gb->memory.hram;
+		descs[i].start = GB_BASE_HRAM;
+		descs[i].len = GB_SIZE_HRAM;
 		descs[i].select = 0xFFFFFF80;
-		descs[i].flags  = RETRO_MEMDESC_SYSTEM_RAM; // Allow RetroArch to access this memory for cheats
+		descs[i].flags = RETRO_MEMDESC_SYSTEM_RAM; // Allow RetroArch to access this memory for cheats
 		i++;
 
 		/* Map IE Register */
-		descs[i].ptr    = &gb->memory.ie;
-		descs[i].start  = GB_BASE_IE;
-		descs[i].len    = 1;
+		descs[i].ptr = &gb->memory.ie;
+		descs[i].start = GB_BASE_IE;
+		descs[i].len = 1;
 		i++;
 
 		/* Map External RAM */
 		if (savedataSize) {
-			descs[i].ptr    = savedata;
-			descs[i].start  = GB_BASE_EXTERNAL_RAM;
-			descs[i].len    = savedataSize < GB_SIZE_EXTERNAL_RAM ? savedataSize : GB_SIZE_EXTERNAL_RAM;
+			descs[i].ptr = savedata;
+			descs[i].start = GB_BASE_EXTERNAL_RAM;
+			descs[i].len = savedataSize < GB_SIZE_EXTERNAL_RAM ? savedataSize : GB_SIZE_EXTERNAL_RAM;
 			i++;
 
 			if ((savedataSize & ~0xFF) > GB_SIZE_EXTERNAL_RAM) {
-				descs[i].ptr    = savedata;
+				descs[i].ptr = savedata;
 				descs[i].offset = GB_SIZE_EXTERNAL_RAM;
-				descs[i].start  = 0x16000;
-				descs[i].len    = savedataSize - GB_SIZE_EXTERNAL_RAM;
+				descs[i].start = 0x16000;
+				descs[i].len = savedataSize - GB_SIZE_EXTERNAL_RAM;
 				i++;
 			}
 		}
@@ -1930,10 +1874,10 @@ static void _setupMaps(struct mCore* core) {
 			/* Map working RAM */
 			/* banks 2-7 of wram mapped in virtual address so it can be
 			 * accessed without bank switching, GBC only */
-			descs[i].ptr    = gb->memory.wram + 0x2000;
-			descs[i].start  = 0x10000;
-			descs[i].len    = GB_SIZE_WORKING_RAM - 0x2000;
-			descs[i].flags  = RETRO_MEMDESC_SYSTEM_RAM; // Allow RetroArch to access this memory for cheats
+			descs[i].ptr = gb->memory.wram + 0x2000;
+			descs[i].start = 0x10000;
+			descs[i].len = GB_SIZE_WORKING_RAM - 0x2000;
+			descs[i].flags = RETRO_MEMDESC_SYSTEM_RAM; // Allow RetroArch to access this memory for cheats
 			i++;
 		}
 
@@ -1954,10 +1898,10 @@ void retro_reset(void) {
 }
 
 #ifdef GEKKO
-static size_t _readRomFile(const char *path, void **buf) {
+static size_t _readRomFile(const char* path, void** buf) {
 	size_t rc;
 	long len;
-	FILE *file = fopen(path, "rb");
+	FILE* file = fopen(path, "rb");
 
 	if (!file) {
 		goto error;
@@ -2042,12 +1986,12 @@ bool retro_load_game(const struct retro_game_info* game) {
 	 * best possible frame pacing */
 	if (core->platform(core) == mPLATFORM_GBA) {
 		size_t audioSamplesPerFrame, audioBufferSize;
-        if (!environCallback(RETRO_ENVIRONMENT_GET_TARGET_SAMPLE_RATE, &targetSampleRate))
-            targetSampleRate = GBA_RESAMPLED_RATE;
+		if (!environCallback(RETRO_ENVIRONMENT_GET_TARGET_SAMPLE_RATE, &targetSampleRate))
+			targetSampleRate = GBA_RESAMPLED_RATE;
 		/* Get nominal output samples per frame */
-        audioSamplesPerFrame = (size_t)(
-				((float) targetSampleRate * (float) core->frameCycles(core) /
-						(float)core->frequency(core)) + 0.5f);
+		audioSamplesPerFrame =
+		    (size_t) (((float) targetSampleRate * (float) core->frameCycles(core) / (float) core->frequency(core)) +
+		              0.5f);
 		/* Round up to nearest multiple of 1024
 		 * > This is more than we need, but
 		 *   no harm in being safe... */
@@ -2303,11 +2247,11 @@ void* retro_get_memory_data(unsigned id) {
 		switch (core->platform(core)) {
 #ifdef M_CORE_GB
 		case mPLATFORM_GB:
-			return ((struct GB*)core->board)->memory.wram;
+			return ((struct GB*) core->board)->memory.wram;
 #endif
 #ifdef M_CORE_GBA
 		case mPLATFORM_GBA:
-			return ((struct GBA*)core->board)->memory.wram;
+			return ((struct GBA*) core->board)->memory.wram;
 #endif
 		default:
 			break;
@@ -2317,11 +2261,11 @@ void* retro_get_memory_data(unsigned id) {
 		switch (core->platform(core)) {
 #ifdef M_CORE_GB
 		case mPLATFORM_GB:
-			return ((struct GB*)core->board)->video.renderer->vram;
+			return ((struct GB*) core->board)->video.renderer->vram;
 #endif
 #ifdef M_CORE_GBA
 		case mPLATFORM_GBA:
-			return ((struct GBA*)core->board)->video.renderer->vram;
+			return ((struct GBA*) core->board)->video.renderer->vram;
 #endif
 		default:
 			break;
@@ -2392,7 +2336,7 @@ void GBARetroLog(struct mLogger* logger, int category, enum mLogLevel level, con
 	switch (level) {
 	case mLOG_ERROR:
 	case mLOG_FATAL:
-    case mLOG_ALL:
+	case mLOG_ALL:
 		retroLevel = RETRO_LOG_ERROR;
 		break;
 	case mLOG_WARN:
@@ -2403,15 +2347,13 @@ void GBARetroLog(struct mLogger* logger, int category, enum mLogLevel level, con
 		break;
 	case mLOG_GAME_ERROR:
 	case mLOG_STUB:
+	case mLOG_DEBUG:
 #ifdef NDEBUG
 		return;
 #else
 		retroLevel = RETRO_LOG_DEBUG;
 		break;
 #endif
-	case mLOG_DEBUG:
-		retroLevel = RETRO_LOG_DEBUG;
-		break;
 	}
 #ifdef NDEBUG
 	static int biosCat = -1;
@@ -2434,7 +2376,7 @@ static void _postAudioBuffer(struct mAVStream* stream, struct mAudioBuffer* buff
 		if (audioLowPassEnabled) {
 			_audioLowPassFilter(audioSampleBuffer, produced);
 		}
-		audioCallback(audioSampleBuffer, (size_t)produced);
+		audioCallback(audioSampleBuffer, (size_t) produced);
 	}
 }
 
@@ -2468,10 +2410,7 @@ static void _setRumble(struct mRumbleIntegrator* rumble, float level) {
 
 static void _updateLux(struct GBALuminanceSource* lux) {
 	UNUSED(lux);
-	struct retro_variable var = {
-		.key = "mgba_solar_sensor_level",
-		.value = 0
-	};
+	struct retro_variable var = { .key = "mgba_solar_sensor_level", .value = 0 };
 	bool luxVarUpdated = envVarsUpdated;
 
 	if (luxVarUpdated && (!environCallback(RETRO_ENVIRONMENT_GET_VARIABLE, &var) || !var.value)) {
@@ -2560,7 +2499,8 @@ static void _stopImage(struct mImageSource* image) {
 	cam.stop();
 }
 
-static void _requestImage(struct mImageSource* image, const void** buffer, size_t* stride, enum mColorFormat* colorFormat) {
+static void _requestImage(struct mImageSource* image, const void** buffer, size_t* stride,
+                          enum mColorFormat* colorFormat) {
 	UNUSED(image);
 	if (!camData) {
 		cam.start();
