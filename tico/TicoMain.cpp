@@ -631,7 +631,6 @@ void HandleInput()
 
             if (p == 0)
             {
-                g_core->SetRewinding(zl);
                 g_audio.SetFastForward(zr);
             }
 
@@ -894,8 +893,12 @@ int main(int argc, char *argv[])
     }
     else
     {
-        g_audio.SetCoreSampleRate(g_core->GetSampleRate());
-        LOG_INFO("AUDIO", "Configured audio pipeline for %.0f Hz core output", g_core->GetSampleRate());
+        double adjustedSampleRate = g_core->GetSampleRate();
+        if (g_core->GetFPS() > 0.0)
+            adjustedSampleRate *= (60.0 / g_core->GetFPS());
+        g_audio.SetCoreSampleRate(adjustedSampleRate);
+        LOG_INFO("AUDIO", "Configured audio pipeline for %.0f Hz core output (stretched to 60Hz)",
+                 g_core->GetSampleRate());
         g_core->InitShaderPipeline();
     }
 
@@ -905,7 +908,6 @@ int main(int argc, char *argv[])
     // Manual frame pacing: 19.2 MHz system tick, target ~16.67ms per frame (60fps)
     static constexpr uint64_t TICKS_PER_SECOND = 19200000ULL;
     static constexpr uint64_t FRAME_TICKS = TICKS_PER_SECOND / 60; // ~320000 ticks
-    static constexpr int64_t FRAME_NS = 16666667LL; // 16.67ms in nanoseconds
     uint64_t frameStart = svcGetSystemTick();
 #endif
 
@@ -933,6 +935,18 @@ int main(int argc, char *argv[])
         ProcessEvents();
         HandleInput();
         Render();
+
+#ifdef __SWITCH__
+        uint64_t frameEnd = svcGetSystemTick();
+        uint64_t elapsedTicks = frameEnd - frameStart;
+        if (elapsedTicks < FRAME_TICKS)
+        {
+            uint64_t remainingTicks = FRAME_TICKS - elapsedTicks;
+            int64_t sleepNs = (int64_t)((remainingTicks * 1000000000ULL) / TICKS_PER_SECOND);
+            if (sleepNs > 0)
+                svcSleepThread(sleepNs);
+        }
+#endif
     }
 
     LOG_INFO("HOME", "Starting cleanup...");

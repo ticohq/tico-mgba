@@ -479,15 +479,16 @@ void TicoOverlay::RenderSocialArea(ImDrawList *dl, ImVec2 displaySize) {
 void TicoOverlay::RenderGame(ImDrawList *dl, ImVec2 displaySize, unsigned int texture,
                              float aspectRatio, int width, int height, int fboWidth, int fboHeight) {
     if (texture == 0) return;
-    static constexpr int GBA_BASE_W = 240, GBA_BASE_H = 160;
+    float baseW = (width > 0) ? (float)width : 240.0f;
+    float baseH = (height > 0) ? (float)height : 160.0f;
     float dstWidth = displaySize.x, dstHeight = displaySize.y, offsetX = 0, offsetY = 0;
     if (m_displayMode == MgbaDisplayMode::Integer) {
         int scale;
         if (m_displaySize == MgbaDisplaySize::Auto) {
-            int scaleX = (int)displaySize.x / GBA_BASE_W, scaleY = (int)displaySize.y / GBA_BASE_H;
+            int scaleX = (int)(displaySize.x / baseW), scaleY = (int)(displaySize.y / baseH);
             scale = std::min(scaleX, scaleY); if (scale < 1) scale = 1;
         } else { scale = (int)m_displaySize - 3; if (scale < 1) scale = 1; }
-        dstWidth = GBA_BASE_W * scale; dstHeight = GBA_BASE_H * scale;
+        dstWidth = baseW * scale; dstHeight = baseH * scale;
         if (dstWidth > displaySize.x) dstWidth = displaySize.x;
         if (dstHeight > displaySize.y) dstHeight = displaySize.y;
     } else {
@@ -509,11 +510,17 @@ void TicoOverlay::RenderGame(ImDrawList *dl, ImVec2 displaySize, unsigned int te
             else { dstHeight = displaySize.y; dstWidth = displaySize.y*aspectRatio; } break;
         }}
     }
-    offsetX = (displaySize.x - dstWidth) / 2.0f; offsetY = (displaySize.y - dstHeight) / 2.0f;
+    dstWidth = std::floor(dstWidth);
+    dstHeight = std::floor(dstHeight);
+    offsetX = std::floor((displaySize.x - dstWidth) / 2.0f);
+    offsetY = std::floor((displaySize.y - dstHeight) / 2.0f);
     dl->AddRectFilled(ImVec2(0,0), displaySize, IM_COL32(0,0,0,255));
     float u_max = (fboWidth > 0 && width > 0) ? (float)width/fboWidth : 1.0f;
     float v_max = (fboHeight > 0 && height > 0) ? (float)height/fboHeight : 1.0f;
-    dl->AddImage((ImTextureID)(intptr_t)texture, ImVec2(offsetX,offsetY), ImVec2(offsetX+dstWidth,offsetY+dstHeight), ImVec2(0,0), ImVec2(u_max,v_max));
+    float halfU = (fboWidth > 0) ? 0.5f / (float)fboWidth : 0.0f;
+    float halfV = (fboHeight > 0) ? 0.5f / (float)fboHeight : 0.0f;
+    dl->AddImage((ImTextureID)(intptr_t)texture, ImVec2(offsetX,offsetY), ImVec2(offsetX+dstWidth,offsetY+dstHeight),
+                 ImVec2(halfU,halfV), ImVec2(u_max-halfU,v_max-halfV));
 }
 
 void TicoOverlay::RenderOverlayBackground(ImDrawList *dl, ImVec2 displaySize) {
@@ -807,7 +814,7 @@ void TicoOverlay::LoadCoreSettings() {
         if (!j.is_discarded()) {
             if (j.contains("display_mode") && j["display_mode"].is_string()) {
                 m_displayMode = (j["display_mode"].get<std::string>() == "Integer") ? MgbaDisplayMode::Integer : MgbaDisplayMode::Display;
-            } else m_displayMode = MgbaDisplayMode::Display;
+            } else m_displayMode = MgbaDisplayMode::Integer;
             if (j.contains("display_size") && j["display_size"].is_string()) {
                 std::string v = j["display_size"].get<std::string>();
                 if (v=="Stretch") m_displaySize = MgbaDisplaySize::Stretch;
@@ -816,7 +823,7 @@ void TicoOverlay::LoadCoreSettings() {
                 else if (v=="2x") m_displaySize = MgbaDisplaySize::_2x;
                 else if (v=="Auto") m_displaySize = MgbaDisplaySize::Auto;
                 else m_displaySize = MgbaDisplaySize::_4_3;
-            } else m_displaySize = MgbaDisplaySize::_4_3;
+            } else m_displaySize = MgbaDisplaySize::Auto;
             if (j.contains("shader_type") && j["shader_type"].is_string()) {
                 std::string v = j["shader_type"].get<std::string>();
                 if (v=="LCD") m_shaderSelection = 1;
@@ -826,8 +833,8 @@ void TicoOverlay::LoadCoreSettings() {
                 else if (v=="LcdGridV2") m_shaderSelection = 5;
                 else m_shaderSelection = 0;
             } else m_shaderSelection = 0;
-        } else { m_displayMode = MgbaDisplayMode::Display; m_displaySize = MgbaDisplaySize::_4_3; }
-    } else { m_displayMode = MgbaDisplayMode::Display; m_displaySize = MgbaDisplaySize::_4_3; }
+        } else { m_displayMode = MgbaDisplayMode::Integer; m_displaySize = MgbaDisplaySize::Auto; }
+    } else { m_displayMode = MgbaDisplayMode::Integer; m_displaySize = MgbaDisplaySize::Auto; }
     ApplyScalingSettings(false);
 }
 
