@@ -114,8 +114,8 @@ private:
     int m_settingsSelection = 0;
     int m_shaderSelection = 0; // 0=None, 1=LCD, 2=Scale2x
     
-    MgbaDisplayMode m_displayMode = MgbaDisplayMode::Display;
-    MgbaDisplaySize m_displaySize = MgbaDisplaySize::_4_3;
+    MgbaDisplayMode m_displayMode = MgbaDisplayMode::Integer;
+    MgbaDisplaySize m_displaySize = MgbaDisplaySize::Auto;
 
     void LoadCoreSettings();
     void SaveCoreSettings();

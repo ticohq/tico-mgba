@@ -677,8 +677,8 @@ bool TicoCore::InitEGLDualContext()
     glBindTexture(GL_TEXTURE_2D, m_frameTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, fboW, fboH, 0,
                  GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
@@ -897,6 +897,8 @@ void TicoCore::UnloadGame()
     {
         glDeleteTextures(1, &m_frameTexture);
         m_frameTexture = 0;
+        m_allocTexWidth = 0;
+        m_allocTexHeight = 0;
     }
 
     if (m_fbo != 0)
@@ -955,39 +957,7 @@ void TicoCore::RunFrame()
     if (!m_gameLoaded || m_paused)
         return;
 
-    if (m_isRewinding)
-    {
-        if (!m_rewindBuffer.empty())
-        {
-            auto& state = m_rewindBuffer.back();
-            retro_unserialize(state.data(), state.size());
-            m_rewindBuffer.pop_back();
-        }
-        retro_run();
-    }
-    else
-    {
-        m_rewindFrameCounter++;
-        if (m_rewindFrameCounter >= 2) // Save state every 2 frames for smoother rewind
-        {
-            m_rewindFrameCounter = 0;
-            size_t size = retro_serialize_size();
-            if (size > 0 && size < 1024 * 1024 * 32) // Sanity check to not allocate gigabytes (mGBA states are small)
-            {
-                std::vector<uint8_t> state(size);
-                if (retro_serialize(state.data(), size))
-                {
-                    m_rewindBuffer.push_back(std::move(state));
-                    // Keep up to 5 seconds of rewind history (60fps / 2 * 5 = 150 states)
-                    if (m_rewindBuffer.size() > 150)
-                    {
-                        m_rewindBuffer.erase(m_rewindBuffer.begin());
-                    }
-                }
-            }
-        }
-        retro_run();
-    }
+    retro_run();
     
     // RetroAchievements frame tick
     if (m_rcClient) {
@@ -1019,8 +989,8 @@ void TicoCore::ResizeFBO(int width, int height)
     glBindTexture(GL_TEXTURE_2D, m_frameTexture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0,
                  GL_RGB, GL_UNSIGNED_BYTE, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
@@ -1635,12 +1605,26 @@ void TicoCore::HandleVideoRefresh(const void *data, unsigned width,
             bpp = 2;
         }
 
+        GLint unpackAlignment = 0;
+        glGetIntegerv(GL_UNPACK_ALIGNMENT, &unpackAlignment);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
         glPixelStorei(GL_UNPACK_ROW_LENGTH, pitch / bpp);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
-                     format, type, data);
+        if (m_allocTexWidth != (int)width || m_allocTexHeight != (int)height)
+        {
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
+                         format, type, data);
+            m_allocTexWidth = (int)width;
+            m_allocTexHeight = (int)height;
+        }
+        else
+        {
+            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height,
+                            format, type, data);
+        }
         glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glPixelStorei(GL_UNPACK_ALIGNMENT, unpackAlignment);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         
@@ -2216,8 +2200,8 @@ void TicoCore::ApplyShader(int srcWidth, int srcHeight)
         glBindTexture(GL_TEXTURE_2D, m_shaderTexture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, outW, outH, 0,
                      GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glBindTexture(GL_TEXTURE_2D, 0);
@@ -2254,23 +2238,17 @@ void TicoCore::ApplyShader(int srcWidth, int srcHeight)
     // Bind source game texture
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, m_frameTexture);
-
-    // For xBRZ/Eagle, use nearest filtering on the source
-    if (m_activeShader == ShaderType::xBRZ || m_activeShader == ShaderType::Eagle) {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    }
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     // Draw fullscreen quad
     glBindVertexArray(m_shaderVAO);
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     glBindVertexArray(0);
 
-    // Restore source texture filtering
-    if (m_activeShader == ShaderType::xBRZ || m_activeShader == ShaderType::Eagle) {
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
+    // Keep the game source pixel-perfect after shader passes too.
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
     glUseProgram(0);
 
