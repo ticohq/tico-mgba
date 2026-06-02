@@ -219,30 +219,21 @@ public:
         if (m_fastForward)
             return; // Drop audio completely during fast forward to prevent desync/memory bleed
 
+        // Non-blocking: never stall the emulation thread on audio. If the buffer
+        // is full (latency cap reached) drop the sample — vsync paces the frame,
+        // not audio back-pressure.
         if (TicoConfig::USE_SDLQUEUEAUDIO)
         {
-            while (SDL_GetQueuedAudioSize(m_deviceId) >= SDL_QUEUE_MAX_BYTES && !m_paused && !m_fastForward)
-            {
-#ifdef __SWITCH__
-                svcSleepThread(100000); // 100µs yield
-#else
-                SDL_Delay(1);
-#endif
-            }
+            if (SDL_GetQueuedAudioSize(m_deviceId) >= SDL_QUEUE_MAX_BYTES)
+                return;
 
             int16_t samples[2] = {left, right};
             SDL_QueueAudio(m_deviceId, samples, sizeof(samples));
         }
         else
         {
-            while (m_buffer.Available() >= MAX_BUFFERED_SAMPLES && !m_paused && !m_fastForward)
-            {
-#ifdef __SWITCH__
-                svcSleepThread(100000);
-#else
-                SDL_Delay(1);
-#endif
-            }
+            if (m_buffer.Available() >= MAX_BUFFERED_SAMPLES)
+                return;
 
             int16_t samples[2] = {left, right};
             m_buffer.Write(samples, 2);
@@ -260,29 +251,20 @@ public:
 
         size_t samplesNeeded = frames * CHANNELS;
 
+        // Non-blocking: drop the batch if the buffer is at the latency cap rather
+        // than stalling the emulation thread. The ring buffer's Write() also
+        // self-limits to free space, so partial writes degrade gracefully.
         if (TicoConfig::USE_SDLQUEUEAUDIO)
         {
-            while (SDL_GetQueuedAudioSize(m_deviceId) >= SDL_QUEUE_MAX_BYTES && !m_paused && !m_fastForward)
-            {
-#ifdef __SWITCH__
-                svcSleepThread(100000);
-#else
-                SDL_Delay(1);
-#endif
-            }
+            if (SDL_GetQueuedAudioSize(m_deviceId) >= SDL_QUEUE_MAX_BYTES)
+                return frames;
 
             SDL_QueueAudio(m_deviceId, data, samplesNeeded * sizeof(int16_t));
         }
         else
         {
-            while (m_buffer.Available() >= MAX_BUFFERED_SAMPLES && !m_paused && !m_fastForward)
-            {
-#ifdef __SWITCH__
-                svcSleepThread(100000);
-#else
-                SDL_Delay(1);
-#endif
-            }
+            if (m_buffer.Available() >= MAX_BUFFERED_SAMPLES)
+                return frames;
 
             m_buffer.Write(data, samplesNeeded);
         }
