@@ -22,5 +22,11 @@
     "emulator_original": "Original",
     "emulator_no_discs": "Aucun disque trouvé",
     "launcher_error_game_not_found": "Jeu introuvable",
-    "emulator_shader": "Filtre"
+    "emulator_shader": "Filtre",
+    "emulator_cheats": "Codes de triche",
+    "emulator_cheats_none": "Aucun code trouvé",
+    "emulator_on": "ON",
+    "emulator_off": "OFF",
+    "emulator_tools": "Outils",
+    "emulator_cheats_recovered": "Codes désactivés après un blocage"
 }

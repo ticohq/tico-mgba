@@ -243,6 +243,8 @@ void TicoOverlay::Render(ImVec2 displaySize, unsigned int gameTexture, float asp
         case OverlayMenu::QuickMenu: RenderQuickMenu(fgDrawList, displaySize); break;
         case OverlayMenu::SaveStates: RenderSaveStatesMenu(fgDrawList, displaySize); break;
         case OverlayMenu::Settings: RenderSettingsMenu(fgDrawList, displaySize); break;
+        case OverlayMenu::Tools: RenderToolsMenu(fgDrawList, displaySize); break;
+        case OverlayMenu::Cheats: RenderCheatsMenu(fgDrawList, displaySize); break;
         default: break;
         }
         RenderHelpersBar(fgDrawList, displaySize);
@@ -541,6 +543,8 @@ void TicoOverlay::RenderTitleCard(ImDrawList *dl, ImVec2 displaySize) {
     std::string titleStr = m_gameTitle;
     if (m_currentMenu == OverlayMenu::SaveStates) titleStr = m_isSaveMode ? tr("emulator_save_state") : tr("emulator_load_state");
     else if (m_currentMenu == OverlayMenu::Settings) titleStr = tr("emulator_settings");
+    else if (m_currentMenu == OverlayMenu::Tools) titleStr = tr("emulator_tools");
+    else if (m_currentMenu == OverlayMenu::Cheats) titleStr = tr("emulator_cheats");
     titleStr.erase(titleStr.find_last_not_of(" \n\r\t") + 1);
     if (titleStr.length() > 50) titleStr = titleStr.substr(0, 47) + "...";
     float scale = ImGui::GetIO().FontGlobalScale;
@@ -574,9 +578,14 @@ static void RenderMenuItem(ImDrawList *dl, ImVec2 menuPos, ImVec2 menuSize, int 
     float itemY = menuPos.y + i * itemHeight;
     ImVec2 itemMin(menuPos.x, itemY), itemMax(menuPos.x + menuSize.x, itemY + itemHeight);
     if (isSelected) {
+        // A single-item list is both first and last, so it needs every corner
+        // rounded -- not just the top (which is all the old if/else-if gave it).
+        bool isFirst = (i == 0);
+        bool isLast = (i == numItems - 1);
         ImDrawFlags corners = 0; float itemRadius = 0.0f;
-        if (i == 0) { corners = ImDrawFlags_RoundCornersTop; itemRadius = cornerRadius; }
-        else if (i == numItems - 1) { corners = ImDrawFlags_RoundCornersBottom; itemRadius = cornerRadius; }
+        if (isFirst && isLast) { corners = ImDrawFlags_RoundCornersAll; itemRadius = cornerRadius; }
+        else if (isFirst) { corners = ImDrawFlags_RoundCornersTop; itemRadius = cornerRadius; }
+        else if (isLast) { corners = ImDrawFlags_RoundCornersBottom; itemRadius = cornerRadius; }
         ImU32 selCol = isDark ? IM_COL32(60,60,60,(int)(255*easeOut)) : IM_COL32(190,195,205,(int)(255*easeOut));
         dl->AddRectFilled(itemMin, itemMax, selCol, itemRadius, corners);
     }
@@ -589,8 +598,8 @@ static void RenderMenuItem(ImDrawList *dl, ImVec2 menuPos, ImVec2 menuSize, int 
 
 void TicoOverlay::RenderQuickMenu(ImDrawList *dl, ImVec2 displaySize) {
     float scale = ImGui::GetIO().FontGlobalScale;
-    std::string items[] = {tr("emulator_save_state"), tr("emulator_load_state"), tr("emulator_settings"), tr("emulator_exit_game")};
-    const int N = 4; float itemH = 64.0f * scale;
+    std::string items[] = {tr("emulator_save_state"), tr("emulator_load_state"), tr("emulator_tools"), tr("emulator_settings"), tr("emulator_exit_game")};
+    const int N = 5; float itemH = 64.0f * scale;
     ImVec2 menuPos, menuSize; float easeOut, cornerRadius;
     RenderMenuContainer(dl, displaySize, 400.0f*scale, N, itemH, m_animTimer, m_isDarkMode, menuPos, menuSize, easeOut, cornerRadius);
     ImFont *font = ImGui::GetFont(); float fs = ImGui::GetFontSize() * 0.85f;
@@ -609,6 +618,90 @@ void TicoOverlay::RenderSaveStatesMenu(ImDrawList *dl, ImVec2 displaySize) {
         char slotText[128];
         snprintf(slotText, sizeof(slotText), tr("emulator_slot").c_str(), i+1, exists ? tr("emulator_in_use").c_str() : tr("emulator_empty").c_str());
         RenderMenuItem(dl, menuPos, menuSize, i, N, itemH, m_saveStateSlot==i, cornerRadius, easeOut, m_isDarkMode, font, fs, slotText);
+    }
+}
+
+// Number of entries in the Tools submenu (currently just "Cheats"). Keep in
+// sync with the items list in RenderToolsMenu and the confirm handler.
+static constexpr int TOOLS_COUNT = 1;
+
+void TicoOverlay::RenderToolsMenu(ImDrawList *dl, ImVec2 displaySize) {
+    float scale = ImGui::GetIO().FontGlobalScale;
+    std::string items[] = {tr("emulator_cheats")};
+    const int N = TOOLS_COUNT;
+    float itemH = 64.0f * scale;
+    ImVec2 menuPos, menuSize; float easeOut, cornerRadius;
+    RenderMenuContainer(dl, displaySize, 400.0f*scale, N, itemH, m_animTimer, m_isDarkMode, menuPos, menuSize, easeOut, cornerRadius);
+    ImFont *font = ImGui::GetFont(); float fs = ImGui::GetFontSize() * 0.85f;
+    for (int i = 0; i < N; i++)
+        RenderMenuItem(dl, menuPos, menuSize, i, N, itemH, m_toolsSelection==i, cornerRadius, easeOut, m_isDarkMode, font, fs, items[i].c_str());
+}
+
+void TicoOverlay::RenderCheatsMenu(ImDrawList *dl, ImVec2 displaySize) {
+    float scale = ImGui::GetIO().FontGlobalScale;
+    float itemH = 64.0f * scale;
+    ImFont *font = ImGui::GetFont(); float fs = ImGui::GetFontSize() * 0.85f;
+
+    const std::vector<TicoCheat> *cheats = m_core ? &m_core->GetCheats() : nullptr;
+    int count = cheats ? (int)cheats->size() : 0;
+
+    // Empty state: single informational row.
+    if (count == 0) {
+        const int N = 1;
+        ImVec2 menuPos, menuSize; float easeOut, cornerRadius;
+        RenderMenuContainer(dl, displaySize, 520.0f*scale, N, itemH, m_animTimer, m_isDarkMode, menuPos, menuSize, easeOut, cornerRadius);
+        RenderMenuItem(dl, menuPos, menuSize, 0, N, itemH, false, cornerRadius, easeOut, m_isDarkMode, font, fs, tr("emulator_cheats_none").c_str());
+        return;
+    }
+
+    // Clamp selection/scroll defensively (cheat list size can change per game).
+    const int maxVisible = 6;
+    if (m_cheatSelection >= count) m_cheatSelection = count - 1;
+    if (m_cheatSelection < 0) m_cheatSelection = 0;
+    int visible = count < maxVisible ? count : maxVisible;
+    int maxOffset = count - visible; if (maxOffset < 0) maxOffset = 0;
+    if (m_cheatScrollOffset > maxOffset) m_cheatScrollOffset = maxOffset;
+    if (m_cheatScrollOffset < 0) m_cheatScrollOffset = 0;
+    if (m_cheatSelection < m_cheatScrollOffset) m_cheatScrollOffset = m_cheatSelection;
+    if (m_cheatSelection >= m_cheatScrollOffset + visible) m_cheatScrollOffset = m_cheatSelection - visible + 1;
+
+    ImVec2 menuPos, menuSize; float easeOut, cornerRadius;
+    RenderMenuContainer(dl, displaySize, 520.0f*scale, visible, itemH, m_animTimer, m_isDarkMode, menuPos, menuSize, easeOut, cornerRadius);
+
+    for (int row = 0; row < visible; row++) {
+        int idx = m_cheatScrollOffset + row;
+        const TicoCheat &c = (*cheats)[idx];
+        bool isSelected = (m_cheatSelection == idx);
+        // Base row + left-aligned name (reuses selection highlight styling).
+        RenderMenuItem(dl, menuPos, menuSize, row, visible, itemH, isSelected, cornerRadius, easeOut, m_isDarkMode, font, fs, c.name.c_str());
+        // Right-aligned ON/OFF indicator. ON is green regardless of theme/selection.
+        std::string value = c.enabled ? tr("emulator_on") : tr("emulator_off");
+        ImU32 textColor;
+        if (c.enabled) {
+            textColor = IM_COL32(80, 220, 100, (int)(255 * easeOut));
+        } else if (m_isDarkMode) {
+            textColor = isSelected ? IM_COL32(255,255,255,(int)(255*easeOut)) : IM_COL32(200,200,200,(int)(255*easeOut));
+        } else {
+            textColor = isSelected ? IM_COL32(60,60,70,(int)(255*easeOut)) : IM_COL32(90,90,100,(int)(255*easeOut));
+        }
+        float itemY = menuPos.y + row * itemH;
+        ImVec2 valueSize = font->CalcTextSizeA(fs, FLT_MAX, 0.0f, value.c_str());
+        float valueX = menuPos.x + menuSize.x - valueSize.x - 20.0f * scale;
+        dl->AddText(font, fs, ImVec2(valueX, itemY + (itemH - valueSize.y) / 2), textColor, value.c_str());
+    }
+
+    // Scroll indicators: chevrons at the panel edges when there are more cheats
+    // above/below the visible window.
+    float cx = menuPos.x + menuSize.x * 0.5f;
+    float aw = 9.0f * scale, ah = 6.0f * scale;
+    ImU32 arrowCol = m_isDarkMode ? IM_COL32(200,200,200,(int)(200*easeOut)) : IM_COL32(90,90,100,(int)(200*easeOut));
+    if (m_cheatScrollOffset > 0) { // more above
+        float ty = menuPos.y + 7.0f * scale;
+        dl->AddTriangleFilled(ImVec2(cx, ty), ImVec2(cx - aw, ty + ah), ImVec2(cx + aw, ty + ah), arrowCol);
+    }
+    if (m_cheatScrollOffset + visible < count) { // more below
+        float by = menuPos.y + menuSize.y - 7.0f * scale;
+        dl->AddTriangleFilled(ImVec2(cx - aw, by - ah), ImVec2(cx + aw, by - ah), ImVec2(cx, by), arrowCol);
     }
 }
 
@@ -700,7 +793,7 @@ bool TicoOverlay::HandleInput(SDL_GameController *controller) {
     if (togglePressed && !m_toggleHeld && debounced) {
         m_toggleHeld = true; m_lastInputTime = now;
         if (m_currentMenu == OverlayMenu::None) Show();
-        else if (m_currentMenu == OverlayMenu::SaveStates || m_currentMenu == OverlayMenu::Settings) { m_currentMenu = OverlayMenu::QuickMenu; m_animTimer = 0.4f; }
+        else if (m_currentMenu == OverlayMenu::SaveStates || m_currentMenu == OverlayMenu::Settings || m_currentMenu == OverlayMenu::Tools || m_currentMenu == OverlayMenu::Cheats) { m_currentMenu = OverlayMenu::QuickMenu; m_animTimer = 0.4f; }
         else Hide();
         return true;
     }
@@ -722,16 +815,20 @@ bool TicoOverlay::HandleInput(SDL_GameController *controller) {
 
     if (up && !m_upHeld && debounced) {
         m_upHeld = true; m_lastInputTime = now;
-        if (m_currentMenu == OverlayMenu::QuickMenu) m_quickMenuSelection = (m_quickMenuSelection + 3) % 4;
+        if (m_currentMenu == OverlayMenu::QuickMenu) m_quickMenuSelection = (m_quickMenuSelection + 4) % 5;
         else if (m_currentMenu == OverlayMenu::SaveStates) m_saveStateSlot = (m_saveStateSlot + 3) % 4;
         else if (m_currentMenu == OverlayMenu::Settings) m_settingsSelection = (m_settingsSelection + 2) % 3;
+        else if (m_currentMenu == OverlayMenu::Tools) m_toolsSelection = (m_toolsSelection + TOOLS_COUNT - 1) % TOOLS_COUNT;
+        else if (m_currentMenu == OverlayMenu::Cheats) { int n = m_core ? (int)m_core->GetCheats().size() : 0; if (n > 0) m_cheatSelection = (m_cheatSelection + n - 1) % n; }
     }
     if (!up) m_upHeld = false;
     if (down && !m_downHeld && debounced) {
         m_downHeld = true; m_lastInputTime = now;
-        if (m_currentMenu == OverlayMenu::QuickMenu) m_quickMenuSelection = (m_quickMenuSelection + 1) % 4;
+        if (m_currentMenu == OverlayMenu::QuickMenu) m_quickMenuSelection = (m_quickMenuSelection + 1) % 5;
         else if (m_currentMenu == OverlayMenu::SaveStates) m_saveStateSlot = (m_saveStateSlot + 1) % 4;
         else if (m_currentMenu == OverlayMenu::Settings) m_settingsSelection = (m_settingsSelection + 1) % 3;
+        else if (m_currentMenu == OverlayMenu::Tools) m_toolsSelection = (m_toolsSelection + 1) % TOOLS_COUNT;
+        else if (m_currentMenu == OverlayMenu::Cheats) { int n = m_core ? (int)m_core->GetCheats().size() : 0; if (n > 0) m_cheatSelection = (m_cheatSelection + 1) % n; }
     }
     if (!down) m_downHeld = false;
 
@@ -767,8 +864,9 @@ bool TicoOverlay::HandleInput(SDL_GameController *controller) {
             switch (m_quickMenuSelection) {
             case 0: m_isSaveMode = true; m_currentMenu = OverlayMenu::SaveStates; break;
             case 1: m_isSaveMode = false; m_currentMenu = OverlayMenu::SaveStates; break;
-            case 2: m_currentMenu = OverlayMenu::Settings; m_settingsSelection = 0; break;
-            case 3: m_shouldExit = true; break;
+            case 2: m_currentMenu = OverlayMenu::Tools; m_toolsSelection = 0; break;
+            case 3: m_currentMenu = OverlayMenu::Settings; m_settingsSelection = 0; break;
+            case 4: m_shouldExit = true; break;
             }
         } else if (m_currentMenu == OverlayMenu::SaveStates) {
             if (m_core) {
@@ -789,6 +887,10 @@ bool TicoOverlay::HandleInput(SDL_GameController *controller) {
                 m_shaderSelection = (m_shaderSelection + 1) % 6;
                 ApplyScalingSettings(true);
             }
+        } else if (m_currentMenu == OverlayMenu::Tools) {
+            if (m_toolsSelection == 0) { m_currentMenu = OverlayMenu::Cheats; m_cheatSelection = 0; m_cheatScrollOffset = 0; }
+        } else if (m_currentMenu == OverlayMenu::Cheats) {
+            if (m_core && !m_core->GetCheats().empty()) m_core->ToggleCheat((size_t)m_cheatSelection);
         }
     }
     if (!confirm) m_confirmHeld = false;
@@ -796,7 +898,8 @@ bool TicoOverlay::HandleInput(SDL_GameController *controller) {
     if (back && !m_backHeld && debounced) {
         m_backHeld = true; m_lastInputTime = now;
         if (m_currentMenu == OverlayMenu::QuickMenu) Hide();
-        else m_currentMenu = OverlayMenu::QuickMenu;
+        else if (m_currentMenu == OverlayMenu::Cheats) m_currentMenu = OverlayMenu::Tools; // Trucos -> Herramientas
+        else m_currentMenu = OverlayMenu::QuickMenu; // Tools/Settings/SaveStates -> QuickMenu
     }
     if (!back) m_backHeld = false;
     return true;

@@ -22,5 +22,11 @@
     "emulator_original": "Original",
     "emulator_no_discs": "No hay discos",
     "launcher_error_game_not_found": "Juego no encontrado",
-    "emulator_shader": "Shader"
+    "emulator_shader": "Shader",
+    "emulator_cheats": "Trucos",
+    "emulator_cheats_none": "Sin trucos",
+    "emulator_on": "ON",
+    "emulator_off": "OFF",
+    "emulator_tools": "Herramientas",
+    "emulator_cheats_recovered": "Trucos desactivados tras un cuelgue"
 }

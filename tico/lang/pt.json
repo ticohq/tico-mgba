@@ -22,5 +22,11 @@
     "emulator_original": "Original",
     "emulator_no_discs": "Nenhum disco encontrado",
     "launcher_error_game_not_found": "Jogo Não Encontrado",
-    "emulator_shader": "Filtro"
+    "emulator_shader": "Filtro",
+    "emulator_cheats": "Trapaças",
+    "emulator_cheats_none": "Nenhuma trapaça encontrada",
+    "emulator_on": "ON",
+    "emulator_off": "OFF",
+    "emulator_tools": "Ferramentas",
+    "emulator_cheats_recovered": "Trapaças desativadas após travamento"
 }

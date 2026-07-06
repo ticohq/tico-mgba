@@ -22,5 +22,11 @@
     "emulator_original": "オリジナル",
     "emulator_no_discs": "ディスクが見つかりません",
     "launcher_error_game_not_found": "ゲームが見つかりません",
-    "emulator_shader": "シェーダー"
+    "emulator_shader": "シェーダー",
+    "emulator_cheats": "チート",
+    "emulator_cheats_none": "チートが見つかりません",
+    "emulator_on": "オン",
+    "emulator_off": "オフ",
+    "emulator_tools": "ツール",
+    "emulator_cheats_recovered": "フリーズ後にチートを無効化しました"
 }
