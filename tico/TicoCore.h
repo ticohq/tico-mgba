@@ -29,6 +29,15 @@ struct TicoMemoryMap {
     uint8_t* ptr;
 };
 
+/// @brief A single named cheat (mGBA .cheats "set"): one or more code lines
+struct TicoCheat {
+    std::string name;
+    std::vector<std::string> codes;      // hex code lines
+    std::vector<std::string> directives; // preserved "!..." directives (except !disabled)
+    std::vector<std::string> unsupportedLines; // "[Section]"/"cheats=..." lines inside this block, preserved verbatim
+    bool enabled = true;
+};
+
 /// @brief Alert position for RA notifications
 enum class RAAlertPosition {
     TopLeft = 0,
@@ -80,6 +89,8 @@ public:
     const std::string& GetOSDMessage() const { return m_osdMessage; }
     int GetOSDFrames() const { return m_osdFrames; }
     void DecrementOSD() { if (m_osdFrames > 0) m_osdFrames--; }
+    /// @brief Show a neutral OSD message (pill, top-left) for `frames` frames.
+    void SetOSD(const std::string &msg, int frames) { m_osdMessage = msg; m_osdFrames = frames; }
 
     /// @brief Unload current game
     void UnloadGame();
@@ -126,6 +137,15 @@ public:
     void SaveState(const std::string &path);
     void LoadState(const std::string &path);
 
+    /// @brief Cheats (mGBA .cheats format, per-game). Autodetect codec via libretro.
+    const std::vector<TicoCheat>& GetCheats() const { return m_cheats; }
+    void ToggleCheat(size_t index); // flips enabled in-memory and re-applies (no persistence)
+
+    /// @brief Resolved GBACheatType (0=Auto, 2=GameShark, 3=ProActionReplay) for a cheat.
+    int GetCheatType(size_t index) const;
+    /// @brief Change a cheat's codec directive, persist it to its .cheats file, and re-apply.
+    void SetCheatType(size_t index, int type);
+
     /// @brief Set EGL contexts for HW rendering
     void SetHWRenderContext(SDL_Window *window, EGLContext mainCtx, EGLContext hwCtx);
 
@@ -155,6 +175,20 @@ private:
 
     void LoadSaveData();
     void SaveSaveData();
+
+    /// @name Cheats (per-game mGBA .cheats file)
+    std::string GetCheatsPath() const;      // CHEATS_PATH + <rombase> + ".cheats"
+    void LoadCheats();                       // parse .cheats into m_cheats, all disabled
+    void ApplyCheats();                      // retro_cheat_reset + one isolated set per enabled cheat
+    void WriteCheatsFile();                  // atomically rewrite .cheats from m_cheats (never !disabled)
+    std::vector<TicoCheat> m_cheats;
+    std::vector<std::string> m_cheatsFilePreamble; // "[Section]"/"cheats=..." lines before any "# name"
+
+    /// @name Cheat crash-guard (visibility only; cheats start disabled every launch)
+    std::string GetCrashGuardPath() const;   // per-game marker of cheats active this session
+    void ArmCrashGuard();                    // write/refresh marker with currently-enabled cheats
+    void DisarmCrashGuard();                 // remove marker on clean shutdown
+    void CheckCrashGuard();                  // on load: if marker survived, warn (previous session froze)
 
     /// @name Libretro static callbacks (dispatch to instance)
     static bool EnvironmentCallback(unsigned cmd, void *data);

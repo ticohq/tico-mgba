@@ -22,5 +22,14 @@
     "emulator_original": "Original",
     "emulator_no_discs": "No discs found",
     "launcher_error_game_not_found": "Game Not Found",
-    "emulator_shader": "Shader"
+    "emulator_shader": "Shader",
+    "emulator_cheats": "Cheats",
+    "emulator_cheats_none": "No cheats found",
+    "emulator_on": "ON",
+    "emulator_off": "OFF",
+    "emulator_tools": "Tools",
+    "emulator_cheats_recovered": "Cheats disabled after a freeze",
+    "emulator_cheat_type": "Code Type",
+    "emulator_details": "Details",
+    "emulator_cheat_preview": "Preview"
 }

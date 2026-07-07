@@ -11,6 +11,7 @@ namespace TicoConfig
     constexpr const char* SYSTEM_PATH = "sdmc:/tico/system/gba/";
     constexpr const char* SAVES_PATH = "sdmc:/tico/saves/gba/";
     constexpr const char* STATES_PATH = "sdmc:/tico/states/gba/";
+    constexpr const char* CHEATS_PATH = "sdmc:/tico/cheats/gba/";
 
     constexpr int WINDOW_WIDTH = 1280;
     constexpr int WINDOW_HEIGHT = 720;
