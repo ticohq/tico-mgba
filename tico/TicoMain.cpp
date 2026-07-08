@@ -499,6 +499,22 @@ void ProcessEvents()
     }
 }
 
+// Re-derives the audio pipeline's sample rate and (re-)arms the shader
+// pipeline for whatever ROM g_core currently has loaded. Runs once after the
+// initial LoadGame() in main(), and again after a Restart ROM reload.
+static void ConfigureAudioAndShaderForLoadedGame()
+{
+    if (!g_core) return;
+
+    double adjustedSampleRate = g_core->GetSampleRate();
+    if (g_core->GetFPS() > 0.0)
+        adjustedSampleRate *= (60.0 / g_core->GetFPS());
+    g_audio.SetCoreSampleRate(adjustedSampleRate);
+    LOG_INFO("AUDIO", "Configured audio pipeline for %.0f Hz core output (stretched to 60Hz)",
+             g_core->GetSampleRate());
+    g_core->InitShaderPipeline();
+}
+
 void HandleInput()
 {
     SDL_GameController *controllers[4] = {nullptr, nullptr, nullptr, nullptr};
@@ -572,6 +588,14 @@ void HandleInput()
                 g_core->Reset();
             }
         }
+        if (g_overlay->ShouldRestartGame())
+        {
+            g_overlay->ClearRestartGame();
+            if (g_core && g_core->IsGameLoaded() && g_core->RestartGame())
+            {
+                ConfigureAudioAndShaderForLoadedGame();
+            }
+        }
         return;
     }
 
@@ -591,12 +615,9 @@ void HandleInput()
             // Switch B (Bottom, SDL A) -> RetroPad B (Bottom)
             g_core->SetInputState(p, RETRO_DEVICE_ID_JOYPAD_B,
                                   SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_A));
-            // Switch X (Top, SDL Y) -> RetroPad X (Top)
-            g_core->SetInputState(p, RETRO_DEVICE_ID_JOYPAD_X,
-                                  SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_Y));
-            // Switch Y (Left, SDL X) -> RetroPad Y (Left)
-            g_core->SetInputState(p, RETRO_DEVICE_ID_JOYPAD_Y,
-                                  SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_X));
+            // Switch X e Y: GBA no tiene botones equivalentes (solo A/B/L/R).
+            // No se envían al core (evita el auto-fire "Turbo A/B" del core libretro),
+            // quedan libres para futuras funcionalidades del overlay/frontend.
 
             // Switch + -> RetroPad Start
             g_core->SetInputState(p, RETRO_DEVICE_ID_JOYPAD_START,
@@ -626,18 +647,15 @@ void HandleInput()
             g_core->SetInputState(p, RETRO_DEVICE_ID_JOYPAD_R,
                                   SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER));
             
-            bool zl = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERLEFT) > 16000;
+            // ZL: sin uso por ahora (libre para futuras funcionalidades).
+            // ZR: únicamente fast-forward, no se envía al core como L2/R2
+            // (evita el auto-fire "Turbo L/R" del core libretro, ej. rodar en Minish Cap).
             bool zr = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 16000;
 
             if (p == 0)
             {
                 g_audio.SetFastForward(zr);
             }
-
-            // Switch ZL -> RetroPad L2
-            g_core->SetInputState(p, RETRO_DEVICE_ID_JOYPAD_L2, zl);
-            // Switch ZR -> RetroPad R2
-            g_core->SetInputState(p, RETRO_DEVICE_ID_JOYPAD_R2, zr);
 
             // Left stick -> RetroPad Analog Left
             g_core->SetAnalogState(p, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X,
@@ -651,6 +669,15 @@ void HandleInput()
                                    SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY));
         }
     }
+}
+
+// Fast-forward speed presets, cycled from the Tools menu (TicoOverlay::m_fastForwardSpeedSelection).
+static constexpr float kFastForwardMultipliers[4] = {1.5f, 2.0f, 3.0f, 4.0f};
+
+static float FastForwardMultiplierFromIndex(int idx)
+{
+    if (idx < 0 || idx >= 4) idx = 1; // default x2
+    return kFastForwardMultipliers[idx];
 }
 
 void Render()
@@ -688,11 +715,36 @@ void Render()
 
         if (!overlayVisible)
         {
+            // Fast-forward runs N core frames per displayed frame (frameskip)
+            // instead of speeding up the render loop itself, so speed isn't
+            // capped by render/swap cost. Fractional multipliers (x1.5) are
+            // handled with an accumulator that carries the remainder across
+            // ticks, averaging out to the requested rate over time.
+            static float s_ffAccumulator = 0.0f;
+            bool fastForward = g_audio.IsFastForwarding();
+            int framesToRun = 1;
+
+            if (fastForward)
+            {
+                int speedIdx = g_overlay ? g_overlay->GetFastForwardSpeedSelection() : 1;
+                s_ffAccumulator += FastForwardMultiplierFromIndex(speedIdx);
+                framesToRun = (int)s_ffAccumulator;
+                if (framesToRun < 1) framesToRun = 1;
+                s_ffAccumulator -= framesToRun;
+            }
+            else
+            {
+                s_ffAccumulator = 0.0f;
+            }
+
             if (frameCount <= 3)
             {
-                LOG_DEBUG("RENDER", "Frame %d: Calling RunFrame", frameCount);
+                LOG_DEBUG("RENDER", "Frame %d: Calling RunFrame x%d", frameCount, framesToRun);
             }
-            g_core->RunFrame();
+            for (int i = 0; i < framesToRun; ++i)
+            {
+                g_core->RunFrame();
+            }
             if (frameCount <= 3)
             {
                 LOG_DEBUG("RENDER", "Frame %d: RunFrame returned", frameCount);
@@ -752,6 +804,43 @@ void Render()
         fg->AddText(ImVec2(pillX + padX, pillY + padY), textCol, msg.c_str());
         
         g_core->DecrementOSD();
+    }
+
+    if (g_audio.IsFastForwarding() && g_overlay)
+    {
+        ImDrawList *fg = ImGui::GetForegroundDrawList();
+        const float marginX = 24.0f, marginY = 16.0f, padX = 16.0f, padY = 8.0f, rounding = 14.0f;
+        const float iconSize = 10.0f, iconGap = 8.0f;
+
+        float multiplier = FastForwardMultiplierFromIndex(g_overlay->GetFastForwardSpeedSelection());
+        char label[16];
+        if (multiplier == (int)multiplier)
+            snprintf(label, sizeof(label), "x%d", (int)multiplier);
+        else
+            snprintf(label, sizeof(label), "x%.1f", multiplier);
+
+        ImVec2 textSize = ImGui::CalcTextSize(label);
+        float iconBlockW = iconSize * 2.8f; // two triangles: "▶▶"
+        float pillW = iconBlockW + iconGap + textSize.x + padX * 2;
+        float iconBlockH = iconSize * 2.0f;
+        float pillH = (textSize.y > iconBlockH ? textSize.y : iconBlockH) + padY * 2;
+        float pillX = (float)w - marginX - pillW; // mirrored to the right of the OSD pill above
+        float pillY = marginY;
+
+        fg->AddRectFilled(ImVec2(pillX, pillY), ImVec2(pillX + pillW, pillY + pillH), IM_COL32(0, 0, 0, 153), rounding);
+
+        // "▶▶" drawn as vector triangles, not Unicode text: the ImGui font is
+        // loaded without explicit GlyphRanges, so it only covers the default
+        // basic-Latin range and would not rasterize U+25B6.
+        float iconY = pillY + pillH / 2.0f, iconX = pillX + padX;
+        ImU32 iconCol = IM_COL32(255, 255, 255, 240);
+        for (int i = 0; i < 2; ++i)
+        {
+            float bx = iconX + i * (iconSize * 0.8f);
+            fg->AddTriangleFilled(ImVec2(bx, iconY - iconSize), ImVec2(bx, iconY + iconSize), ImVec2(bx + iconSize, iconY), iconCol);
+        }
+        float textX = iconX + iconBlockW + iconGap - iconSize * 0.8f;
+        fg->AddText(ImVec2(textX, pillY + (pillH - textSize.y) / 2.0f), IM_COL32(255, 255, 255, 240), label);
     }
 
     ImGui::Render();
@@ -893,22 +982,17 @@ int main(int argc, char *argv[])
     }
     else
     {
-        double adjustedSampleRate = g_core->GetSampleRate();
-        if (g_core->GetFPS() > 0.0)
-            adjustedSampleRate *= (60.0 / g_core->GetFPS());
-        g_audio.SetCoreSampleRate(adjustedSampleRate);
-        LOG_INFO("AUDIO", "Configured audio pipeline for %.0f Hz core output (stretched to 60Hz)",
-                 g_core->GetSampleRate());
-        g_core->InitShaderPipeline();
+        ConfigureAudioAndShaderForLoadedGame();
     }
 
     Uint32 lastTime = SDL_GetTicks();
 
     // Frame pacing is handled entirely by vsync (eglSwapBuffers with
-    // eglSwapInterval=1). Audio is non-blocking, so the swap is the only governor.
-    // While fast-forwarding we drop to swapInterval=0 so the loop is uncapped.
-    bool lastFastForward = false;
-
+    // eglSwapInterval=1), at normal speed and during fast-forward alike.
+    // Fast-forward doesn't push the render loop past 60Hz; instead Render()
+    // runs multiple emulated core frames per displayed/swapped frame (classic
+    // libretro-style frameskip), so speed scales with core throughput instead
+    // of being capped by render+swap cost.
     while (g_running)
     {
 #ifdef __SWITCH__
@@ -919,18 +1003,6 @@ int main(int argc, char *argv[])
             break;
         }
 #endif
-
-        bool fastForward = g_audio.IsFastForwarding();
-        if (fastForward != lastFastForward)
-        {
-            int interval = fastForward ? 0 : 1;
-#ifdef __SWITCH__
-            eglSwapInterval(g_eglDisplay, interval);
-#else
-            SDL_GL_SetSwapInterval(interval);
-#endif
-            lastFastForward = fastForward;
-        }
 
         float deltaTime = (SDL_GetTicks() - lastTime) / 1000.0f;
         lastTime = SDL_GetTicks();

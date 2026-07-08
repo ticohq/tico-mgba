@@ -22,5 +22,20 @@
     "emulator_original": "オリジナル",
     "emulator_no_discs": "ディスクが見つかりません",
     "launcher_error_game_not_found": "ゲームが見つかりません",
-    "emulator_shader": "シェーダー"
+    "emulator_shader": "シェーダー",
+    "emulator_cheats": "チート",
+    "emulator_cheats_none": "チートが見つかりません",
+    "emulator_on": "オン",
+    "emulator_off": "オフ",
+    "emulator_tools": "ツール",
+    "emulator_fast_forward": "早送り",
+    "emulator_cheats_recovered": "フリーズ後にチートを無効化しました",
+    "emulator_cheat_type": "コードタイプ",
+    "emulator_details": "詳細",
+    "emulator_cheat_preview": "プレビュー",
+    "emulator_restart_rom": "ROMを再起動",
+    "emulator_cancel": "キャンセル",
+    "emulator_confirm_restart_title": "ROMを再起動しますか?",
+    "emulator_confirm_exit_title": "ゲームを終了しますか?",
+    "emulator_unsaved_progress_warning": "保存していない進行状況は失われます。"
 }

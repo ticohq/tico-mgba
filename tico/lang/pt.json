@@ -22,5 +22,20 @@
     "emulator_original": "Original",
     "emulator_no_discs": "Nenhum disco encontrado",
     "launcher_error_game_not_found": "Jogo Não Encontrado",
-    "emulator_shader": "Filtro"
+    "emulator_shader": "Filtro",
+    "emulator_cheats": "Trapaças",
+    "emulator_cheats_none": "Nenhuma trapaça encontrada",
+    "emulator_on": "ON",
+    "emulator_off": "OFF",
+    "emulator_tools": "Ferramentas",
+    "emulator_fast_forward": "Avanço rápido",
+    "emulator_cheats_recovered": "Trapaças desativadas após travamento",
+    "emulator_cheat_type": "Tipo de código",
+    "emulator_details": "Detalhes",
+    "emulator_cheat_preview": "Pré-visualização",
+    "emulator_restart_rom": "Reiniciar ROM",
+    "emulator_cancel": "Cancelar",
+    "emulator_confirm_restart_title": "Reiniciar a ROM?",
+    "emulator_confirm_exit_title": "Sair do jogo?",
+    "emulator_unsaved_progress_warning": "O progresso não salvo será perdido."
 }
