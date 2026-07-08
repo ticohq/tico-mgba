@@ -6,28 +6,28 @@
 
 *Part of the tico ecosystem* — https://www.ticoverse.com
 
-**mGBA** is a fast, accurate, and widely used emulator for the Game Boy Advance.
+----------
 
-This fork adapts mGBA to work with the tico frontend and provides a standalone build for the Nintendo Switch, adding a small set of practical features while preserving the strengths that make mGBA reliable.
+## English
+
+This is an **unofficial fork** of the official [mGBA](https://mgba.io) emulator, adapted to run as the Game Boy Advance core for **tico** on Nintendo Switch.
+
+It was created to learn more about the mGBA codebase, and specifically to experiment with implementing mGBA's cheat system (GameShark / Action Replay / CodeBreaker) inside the tico overlay. Other changes may be added over time as this exploration continues — this is meant as a temporary, community effort **while the official tico team works on implementing these features themselves**, not a replacement for it.
+
+This is **not an official mGBA core for tico** and is not affiliated with or endorsed by the mGBA project or the tico team.
 
 ----------
 
-## Summary
+## Español
 
-This fork focuses on making mGBA more usable in practice without changing what makes it solid.
+Este es un **fork no oficial** del emulador oficial [mGBA](https://mgba.io), adaptado para funcionar como el core de Game Boy Advance de **tico** en Nintendo Switch.
 
-It adds:
+Se creó para aprender un poco más sobre el código de mGBA, y en particular para experimentar implementando el sistema de cheats de mGBA (GameShark / Action Replay / CodeBreaker) dentro del overlay de tico. Es posible que se agreguen otros cambios con el tiempo mientras continúe esta exploración — esto es un esfuerzo temporal y comunitario **mientras el equipo oficial de tico implementa estas funciones por su cuenta**, no un reemplazo de eso.
 
--   Custom overlay matching tico design, including time, date, user avatar, and game title
--   Explicit control over display (integer scaling and aspect ratios)
--   Runtime-selectable rendering filters  
--   Built-in save and load state support
--   Integrated RetroAchievements with custom alerts
+Esta **no es una versión oficial del core de mGBA para tico** y no está afiliada ni respaldada por el proyecto mGBA ni por el equipo de tico.
 
 ----------
 
-## A Note
-
-A lot of work in this scene disappears over time — not because it lacked value, but because it was never shared.
-
-If you are building something, consider releasing it. Even small contributions can help others move forward.
+<p align="center">
+  <i>Hecho con ❤️ por <b>Brayan Devia</b> — Colombia 🇨🇴</i>
+</p>

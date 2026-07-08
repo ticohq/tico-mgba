@@ -18,6 +18,8 @@
 #include <sys/types.h>
 #include <vector>
 #include "TicoLogger.h"
+#include "TicoUtils.h"
+#include "TicoTranslationManager.h"
 
 // RetroAchievements
 #include "rc_client.h"
@@ -31,7 +33,7 @@
 
 
 #ifdef __SWITCH__
-#include <glad/glad.h>
+#include "glad.h"
 #include <switch.h>
 
 /// @brief Switch vibration handles and state
@@ -40,7 +42,7 @@ static HidVibrationValue s_currentVibration[5][2] = {};
 static bool s_vibrationInitialized = false;
 
 #else
-#include <glad/glad.h>
+#include "glad.h"
 #endif
 
 
@@ -157,6 +159,15 @@ extern "C"
     bool retro_unserialize(const void *data, size_t size);
     void *retro_get_memory_data(unsigned id);
     size_t retro_get_memory_size(unsigned id);
+    // tico helpers (defined in src/platform/libretro/libretro.c), used instead
+    // of the standard retro_cheat_set/retro_cheat_reset:
+    // - tico_add_cheat_set: adds a cheat as its own isolated core set with
+    //   independent autodetect/hook state (and dedups shared hook addresses).
+    // - tico_cheat_reset: properly tears down all sets, restoring any ROM byte
+    //   a hook had patched (retro_cheat_reset leaves hook breakpoints stuck in
+    //   ROM -- see tico_cheat_reset's comment in libretro.c for why).
+    int tico_add_cheat_set(const char *name, const char *const *lines, int nLines, bool enabled, int type);
+    void tico_cheat_reset(void);
 }
 
 // Static instance for callbacks
@@ -865,6 +876,13 @@ bool TicoCore::LoadGame(const std::string &path)
     // Load native save data, falling back to legacy .srm saves when needed.
     LoadSaveData();
 
+    // Load per-game cheats (all start disabled) and apply the enabled ones (none yet).
+    LoadCheats();
+    // If a crash-guard marker survived, the previous session froze/was killed with
+    // cheats active -> surface it before we (re)arm for this session.
+    CheckCrashGuard();
+    ApplyCheats();
+
     return true;
 }
 
@@ -872,6 +890,9 @@ void TicoCore::UnloadGame()
 {
     if (!m_gameLoaded)
         return;
+
+    // Clean shutdown: clear the cheat crash-guard so next launch shows no warning.
+    DisarmCrashGuard();
 
     SaveSaveData();
 
@@ -1022,6 +1043,331 @@ void TicoCore::Reset()
     {
         retro_reset();
     }
+}
+
+// ============================================================================
+// Cheats (per-game mGBA .cheats file, applied via libretro autodetect)
+// ============================================================================
+
+std::string TicoCore::GetCheatsPath() const
+{
+    std::string name = m_gamePath;
+    size_t lastSlash = name.find_last_of("/\\");
+    if (lastSlash != std::string::npos)
+        name = name.substr(lastSlash + 1);
+    size_t lastDot = name.find_last_of(".");
+    if (lastDot != std::string::npos)
+        name = name.substr(0, lastDot);
+
+    struct stat st = {0};
+    if (stat(TicoConfig::CHEATS_PATH, &st) == -1)
+        mkdir(TicoConfig::CHEATS_PATH, 0777);
+
+    return std::string(TicoConfig::CHEATS_PATH) + name + ".cheats";
+}
+
+void TicoCore::LoadCheats()
+{
+    m_cheats.clear();
+    m_cheatsFilePreamble.clear();
+    if (m_gamePath.empty())
+        return;
+
+    std::ifstream file(GetCheatsPath());
+    if (!file.is_open())
+        return;
+
+    TicoCheat current;
+    bool haveCurrent = false;
+    std::string line;
+    while (std::getline(file, line))
+    {
+        std::string trimmed = TicoUtils::Trim(line);
+        if (trimmed.empty())
+            continue;
+
+        if (trimmed[0] == '#')
+        {
+            // Start a new cheat set; commit the previous one.
+            if (haveCurrent)
+                m_cheats.push_back(current);
+            current = TicoCheat();
+            current.name = TicoUtils::Trim(trimmed.substr(1));
+            current.enabled = false; // all cheats start OFF every launch; the user opts in
+            haveCurrent = true;
+        }
+        else if (trimmed[0] == '!')
+        {
+            if (!haveCurrent)
+                continue; // directive before any set: ignore
+            if (trimmed == "!disabled")
+                continue; // enable-state is not persisted; everything starts disabled
+            current.directives.push_back(trimmed); // preserve !GSAv1 / !PARv3 for codec hinting
+        }
+        else if (trimmed[0] == '[' || trimmed.rfind("cheats", 0) == 0)
+        {
+            // Embedded EZ-Flash ([...]) or libretro (cheats = N) header lines
+            // aren't interpreted by this simplified parser, but we keep them
+            // verbatim so WriteCheatsFile doesn't silently delete them from a
+            // hand-authored or imported .cheats file.
+            if (haveCurrent)
+                current.unsupportedLines.push_back(trimmed);
+            else
+                m_cheatsFilePreamble.push_back(trimmed);
+            continue;
+        }
+        else
+        {
+            if (!haveCurrent)
+            {
+                // Code line with no preceding "# name": create an unnamed set.
+                current = TicoCheat();
+                current.name = "Cheat";
+                current.enabled = false;
+                haveCurrent = true;
+            }
+            current.codes.push_back(trimmed);
+        }
+    }
+    if (haveCurrent)
+        m_cheats.push_back(current);
+}
+
+// Map preserved .cheats directives to a GBACheatType for the core:
+// 0=autodetect, 1=CodeBreaker, 2=GameShark, 3=ProActionReplay, 4=VBA.
+static int _cheatTypeFromDirectives(const std::vector<std::string> &directives)
+{
+    for (const std::string &d : directives)
+    {
+        if (d.rfind("!GSAv1", 0) == 0)
+            return 2; // GameShark
+        if (d.rfind("!PARv3", 0) == 0)
+            return 3; // Pro Action Replay
+    }
+    return 0; // autodetect
+}
+
+void TicoCore::ApplyCheats()
+{
+    if (!m_gameLoaded)
+        return;
+
+    // NOT retro_cheat_reset(): it frees each set's bookkeeping directly without
+    // calling set->remove() first, so a hook's patched ROM byte (a breakpoint
+    // opcode) never gets restored. Since we rebuild the whole cheat list on
+    // every single toggle, that stale byte would get read back as "the real
+    // instruction" the next time a hook installs at that address, and the core
+    // would hang the moment the hook fires. tico_cheat_reset() tears sets down
+    // properly (restoring ROM) before we re-add the currently-enabled ones.
+    tico_cheat_reset();
+
+    int applied = 0;
+    for (const TicoCheat &c : m_cheats)
+    {
+        if (!c.enabled || c.codes.empty())
+            continue;
+
+        int type = _cheatTypeFromDirectives(c.directives);
+        std::vector<const char *> lines;
+        lines.reserve(c.codes.size());
+        for (const std::string &code : c.codes)
+            lines.push_back(code.c_str());
+
+        // Each cheat becomes its OWN isolated core set (independent autodetect/hook),
+        // so a mis-decoded cheat cannot corrupt or hang the others.
+        int result = tico_add_cheat_set(c.name.c_str(), lines.data(), (int)lines.size(), true, type);
+        ++applied;
+        tico_debug_log("CHEAT apply: '%s' lines=%d type=%d result=%d",
+                       c.name.c_str(), (int)lines.size(), type, result);
+    }
+
+    if (applied > 0)
+        ArmCrashGuard();
+    else
+        DisarmCrashGuard();
+}
+
+void TicoCore::ToggleCheat(size_t index)
+{
+    if (index >= m_cheats.size())
+        return;
+    m_cheats[index].enabled = !m_cheats[index].enabled;
+    ApplyCheats(); // no persistence: choices last only for this session
+}
+
+int TicoCore::GetCheatType(size_t index) const
+{
+    if (index >= m_cheats.size())
+        return 0;
+    return _cheatTypeFromDirectives(m_cheats[index].directives);
+}
+
+void TicoCore::SetCheatType(size_t index, int type)
+{
+    if (index >= m_cheats.size())
+        return;
+
+    std::vector<std::string> &directives = m_cheats[index].directives;
+    directives.erase(std::remove_if(directives.begin(), directives.end(), [](const std::string &d) {
+        return d.rfind("!GSAv1", 0) == 0 || d.rfind("!PARv3", 0) == 0;
+    }), directives.end());
+    if (type == 2)
+        directives.push_back("!GSAv1");
+    else if (type == 3)
+        directives.push_back("!PARv3");
+    // type == 0 (autodetect): no directive line
+
+    WriteCheatsFile();
+    ApplyCheats(); // re-decode with the new type immediately if this cheat is enabled
+}
+
+void TicoCore::WriteCheatsFile()
+{
+    if (m_gamePath.empty())
+        return;
+
+    std::string path = GetCheatsPath();
+    std::string tmpPath = path + ".tmp";
+
+    {
+        std::ofstream file(tmpPath, std::ios::trunc);
+        if (!file.is_open())
+            return;
+
+        for (const std::string &line : m_cheatsFilePreamble)
+            file << line << "\n";
+        if (!m_cheatsFilePreamble.empty())
+            file << "\n";
+
+        for (size_t i = 0; i < m_cheats.size(); ++i)
+        {
+            const TicoCheat &c = m_cheats[i];
+            if (i > 0)
+                file << "\n";
+            file << "# " << c.name << "\n";
+            for (const std::string &line : c.unsupportedLines)
+                file << line << "\n";
+            for (const std::string &d : c.directives)
+                file << d << "\n";
+            for (const std::string &code : c.codes)
+                file << code << "\n";
+        }
+    }
+
+    // Atomic-ish replace: a truncate-write on the destination path would leave
+    // a window where the file is empty/partial if power is lost mid-write.
+    // Losing this file means losing a whole game's cheat database, not just a
+    // small config, so write to a temp file and swap it in instead. Try the
+    // rename directly first (some libnx/FAT rename implementations refuse to
+    // overwrite an existing destination, which is why the remove+retry fallback
+    // exists) so we only ever delete the original if we actually need to.
+    if (rename(tmpPath.c_str(), path.c_str()) != 0)
+    {
+        remove(path.c_str());
+        if (rename(tmpPath.c_str(), path.c_str()) != 0)
+        {
+            // Both attempts failed: the good data is still sitting in tmpPath
+            // (never deleted), just not under the expected filename. Log it so
+            // it's diagnosable instead of silently vanishing.
+            tico_debug_log("CHEATS: WriteCheatsFile failed to replace '%s' with '%s'",
+                           path.c_str(), tmpPath.c_str());
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Cheat crash-guard: a per-game marker of the cheats active this session.
+// Written when cheats are applied, removed on clean shutdown. If it survives to
+// the next launch, the previous session ended without cleanup (a freeze/kill)
+// while those cheats were active -> we surface it. No auto-recovery is needed
+// because cheats already start disabled every launch.
+// ---------------------------------------------------------------------------
+
+std::string TicoCore::GetCrashGuardPath() const
+{
+    std::string name = m_gamePath;
+    size_t lastSlash = name.find_last_of("/\\");
+    if (lastSlash != std::string::npos)
+        name = name.substr(lastSlash + 1);
+    size_t lastDot = name.find_last_of(".");
+    if (lastDot != std::string::npos)
+        name = name.substr(0, lastDot);
+
+    struct stat st = {0};
+    if (stat(TicoConfig::CHEATS_PATH, &st) == -1)
+        mkdir(TicoConfig::CHEATS_PATH, 0777);
+
+    return std::string(TicoConfig::CHEATS_PATH) + name + ".crashguard.json";
+}
+
+void TicoCore::ArmCrashGuard()
+{
+    if (m_gamePath.empty())
+        return;
+
+    nlohmann::json names = nlohmann::json::array();
+    for (const TicoCheat &c : m_cheats)
+        if (c.enabled)
+            names.push_back(c.name);
+
+    if (names.empty())
+    {
+        DisarmCrashGuard();
+        return;
+    }
+
+    nlohmann::json j;
+    j["active_cheats"] = names;
+    std::ofstream out(GetCrashGuardPath(), std::ios::trunc);
+    if (out.is_open())
+    {
+        out << j.dump(4);
+        out.close();
+        tico_debug_log("CRASHGUARD armed: %d active cheat(s)", (int)names.size());
+    }
+}
+
+void TicoCore::DisarmCrashGuard()
+{
+    if (m_gamePath.empty())
+        return;
+    remove(GetCrashGuardPath().c_str());
+}
+
+void TicoCore::CheckCrashGuard()
+{
+    if (m_gamePath.empty())
+        return;
+
+    std::ifstream in(GetCrashGuardPath());
+    if (!in.is_open())
+        return; // previous session exited cleanly
+
+    // A surviving marker means the previous session was killed/froze (cleanup
+    // never ran) while these cheats were active.
+    std::string names;
+    {
+        auto j = nlohmann::json::parse(in, nullptr, false, true);
+        in.close();
+        if (!j.is_discarded() && j.contains("active_cheats") && j["active_cheats"].is_array())
+        {
+            for (const auto &n : j["active_cheats"])
+            {
+                if (!n.is_string())
+                    continue;
+                if (!names.empty())
+                    names += ", ";
+                names += n.get<std::string>();
+            }
+        }
+    }
+
+    remove(GetCrashGuardPath().c_str());
+
+    // Show only the general message on-screen; keep the cheat names in the log.
+    SetOSD(tr("emulator_cheats_recovered"), 360); // ~6s at 60fps
+    tico_debug_log("CRASHGUARD: previous session ended uncleanly with cheats: %s",
+                   names.empty() ? "(unknown)" : names.c_str());
 }
 
 void TicoCore::Pause() { m_paused = true; }

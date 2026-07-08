@@ -22,5 +22,15 @@
     "emulator_original": "原始",
     "emulator_no_discs": "未找到光盘",
     "launcher_error_game_not_found": "未找到游戏",
-    "emulator_shader": "着色器"
+    "emulator_shader": "着色器",
+    "emulator_cheats": "金手指",
+    "emulator_cheats_none": "未找到金手指",
+    "emulator_on": "开",
+    "emulator_off": "关",
+    "emulator_tools": "工具",
+    "emulator_fast_forward": "快进",
+    "emulator_cheats_recovered": "卡死后已禁用金手指",
+    "emulator_cheat_type": "代码类型",
+    "emulator_details": "详情",
+    "emulator_cheat_preview": "预览"
 }
