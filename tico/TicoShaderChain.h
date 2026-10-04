@@ -39,10 +39,19 @@ public:
     void SetSourceFrame(const void *data, unsigned width, unsigned height, size_t pitch,
                         retro_pixel_format format);
 
+    /// A new frame from a hardware-rendered core: the next Process copies
+    /// `width` x `height` of `image` (in `layout`, left in it afterwards) into
+    /// the source on the GPU.
+    void SetSourceImage(VkImage image, VkImageLayout layout, unsigned width, unsigned height);
+
     /// Record the passes into `cmd` and return the final image for ImGui, or
     /// ImTextureID_Invalid if there is nothing to show yet.
     ImTextureID Process(VkCommandBuffer cmd, uint32_t viewportWidth, uint32_t viewportHeight,
                         float coreAspect, double coreFps);
+
+    /// The last pass's image from the latest Process, in
+    /// SHADER_READ_ONLY_OPTIMAL, sized to the viewport; null before the first.
+    const TicoVulkan::Image *OutputImage() const;
 
     /// Debug: write the last final image to a PNG. Waits for the GPU.
     bool SaveOutputPNG(const std::string &path);
@@ -61,6 +70,8 @@ private:
     unsigned m_frameHeight = 0;
     retro_pixel_format m_frameFormat = RETRO_PIXEL_FORMAT_RGB565;
     bool m_frameDirty = false;
+    VkImage m_extImage = VK_NULL_HANDLE; // SetSourceImage's frame, until copied
+    VkImageLayout m_extLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     uint32_t m_frameCount = 0;
 
     TicoVulkan::Buffer m_staging[TicoVulkan::kFramesInFlight];
