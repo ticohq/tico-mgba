@@ -28,6 +28,10 @@ namespace SwitchFrontend::OverlayUI {
 
 namespace {
 constexpr int kOverlaySlotCount = 6;
+// Slots 1-5 are the player's; the sixth holds the state saved automatically
+// when the game closes, listed first (as "Auto") in Load State only.
+constexpr int kUserSlotCount = 5;
+constexpr int kAutoSlotIndex = 5;
 constexpr int kToastSlotCount = 4;
 // rows shown at once before a list starts scrolling
 constexpr int kMaxVisibleRows = 8;
@@ -56,6 +60,8 @@ enum class MenuScreen {
     FolderBrowser,
     FolderActions,
     FolderConfirm,
+    // offered as the game starts when it has an auto save: Continue or Start Over
+    Resume,
     // Yes/Cancel before Restart or Exit Game
     GameConfirm,
 };
@@ -839,6 +845,17 @@ std::vector<MenuRow> BuildOptionRows() {
 }
 
 // The rows of the screen that is currently open.
+// The slot (0-based) a row of the Save or Load State list stands for.
+int SlotForRow(int row) {
+    if (s_menu == MenuScreen::Resume) {
+        return kAutoSlotIndex; // its picture and time, whichever row
+    }
+    if (s_menu == MenuScreen::LoadStates) {
+        return row == 0 ? kAutoSlotIndex : row - 1;
+    }
+    return row;
+}
+
 std::vector<MenuRow> BuildRows() {
     std::vector<MenuRow> rows;
     switch (s_menu) {
@@ -852,10 +869,17 @@ std::vector<MenuRow> BuildRows() {
         const std::string slot_format = TrOr("emulator_slot", "Slot %d (%s)");
         const std::string in_use = TrOr("emulator_in_use", "In Use");
         const std::string empty = TrOr("emulator_empty", "Empty");
-        for (int i = 0; i < kOverlaySlotCount; ++i) {
+        const std::string auto_format = TrOr("emulator_auto_slot", "Auto (%s)");
+        const int row_count = kUserSlotCount + (s_menu == MenuScreen::LoadStates ? 1 : 0);
+        for (int r = 0; r < row_count; ++r) {
+            const int i = SlotForRow(r);
+            const char* state = s_slot_occupied[i] ? in_use.c_str() : empty.c_str();
             char label[128];
-            std::snprintf(label, sizeof(label), slot_format.c_str(), i + 1,
-                          s_slot_occupied[i] ? in_use.c_str() : empty.c_str());
+            if (i == kAutoSlotIndex) {
+                std::snprintf(label, sizeof(label), auto_format.c_str(), state);
+            } else {
+                std::snprintf(label, sizeof(label), slot_format.c_str(), i + 1, state);
+            }
             MenuRow row{label};
             row.dimmed = s_menu == MenuScreen::LoadStates && !s_slot_occupied[i];
             rows.push_back(row);
@@ -974,6 +998,10 @@ std::vector<MenuRow> BuildRows() {
     case MenuScreen::SettingsOptions:
         rows = BuildOptionRows();
         break;
+    case MenuScreen::Resume:
+        rows.push_back({TrOr("emulator_continue", "Continue")});
+        rows.push_back({TrOr("emulator_start_over", "Start Over")});
+        break;
     }
     return rows;
 }
@@ -1008,6 +1036,9 @@ std::string BuildTitle() {
         break;
     case MenuScreen::FolderConfirm:
         title = TrOr("emulator_remove_folder_confirm", "Remove this folder? No files will be deleted.");
+        break;
+    case MenuScreen::Resume:
+        title = TrOr("emulator_resume_title", "Continue where you left off?");
         break;
     case MenuScreen::GameConfirm:
         title = s_confirm_item == QuickItem::Restart
@@ -1425,7 +1456,7 @@ void RenderStates(ImDrawList* dl, ImVec2 display_size, float ease, const std::ve
     const float pane_top = panel_min.y + (2.0f * pad);
     const float pane_bottom = panel_max.y - (2.0f * pad) - caption_h;
     const SlotPreview& preview =
-        s_slot_preview[static_cast<std::size_t>(std::clamp(s_selected, 0, kOverlaySlotCount - 1))];
+        s_slot_preview[static_cast<std::size_t>(std::clamp(SlotForRow(s_selected), 0, kOverlaySlotCount - 1))];
     const float aspect = preview.aspect > 0.1f ? preview.aspect : (4.0f / 3.0f);
     float pic_w = pane_right - pane_left;
     float pic_h = pic_w / aspect;
@@ -1587,7 +1618,9 @@ void RenderHelpersBar(ImDrawList* dl, ImVec2 display_size, float ease) {
         std::string_view description;
     };
 
-    const std::string back = TrOr("emulator_back", "Back");
+    // on the resume prompt B starts the game over
+    const std::string back = s_menu == MenuScreen::Resume ? TrOr("emulator_start_over", "Start Over")
+                                                          : TrOr("emulator_back", "Back");
     std::string accept = TrOr("emulator_select", "Select");
     if (s_menu == MenuScreen::SaveStates)
         accept = TrOr("emulator_save_state", "Save State");
@@ -1957,6 +1990,8 @@ Action AcceptSelection(const std::vector<MenuRow>& rows) {
         case QuickItem::LoadState:
             RefreshSlots();
             OpenScreen(MenuScreen::LoadStates);
+            // the auto save first when there is one, else slot 1
+            s_selected = s_slot_occupied[kAutoSlotIndex] ? 0 : 1;
             break;
         case QuickItem::Rewind:
             RefreshRewindPoints();
@@ -1990,12 +2025,12 @@ Action AcceptSelection(const std::vector<MenuRow>& rows) {
         return Action::None;
     }
     case MenuScreen::SaveStates:
-        return MakeSaveActionForSlot(s_selected);
+        return MakeSaveActionForSlot(SlotForRow(s_selected));
     case MenuScreen::LoadStates:
-        if (!s_slot_occupied[static_cast<std::size_t>(s_selected)]) {
+        if (!s_slot_occupied[static_cast<std::size_t>(SlotForRow(s_selected))]) {
             return Action::None;
         }
-        return MakeLoadActionForSlot(s_selected);
+        return MakeLoadActionForSlot(SlotForRow(s_selected));
     case MenuScreen::Rewind: {
         if (s_rewind_points.empty()) {
             return Action::None;
@@ -2128,6 +2163,8 @@ Action AcceptSelection(const std::vector<MenuRow>& rows) {
         }
         return Action::None;
     }
+    case MenuScreen::Resume:
+        return s_selected == 0 ? MakeLoadActionForSlot(kAutoSlotIndex) : Action::Resume;
     case MenuScreen::GameConfirm:
         if (s_selected == 0) {
             return s_confirm_item == QuickItem::Restart ? Action::Restart
@@ -2253,6 +2290,7 @@ Action ActivateSidebarItem() {
 Action CancelScreen() {
     switch (s_menu) {
     case MenuScreen::QuickMenu:
+    case MenuScreen::Resume: // B starts the game over
         return Action::Resume;
     case MenuScreen::Library:
         // the library is the root while no game runs; Exit leaves it
@@ -2467,6 +2505,11 @@ void SetVisible(bool visible) {
     }
 
     s_visible = visible;
+}
+
+void ShowResumePrompt() {
+    RefreshSlots();
+    OpenScreen(MenuScreen::Resume);
 }
 
 void SetHardcoreMode(bool hardcore) {
@@ -2726,7 +2769,8 @@ Action Render(int display_w, int display_h) {
     RenderTitleCard(dl, display_size, ease);
     if (s_menu == MenuScreen::SettingsCategories || s_menu == MenuScreen::SettingsOptions) {
         RenderSettings(dl, display_size, ease);
-    } else if (s_menu == MenuScreen::SaveStates || s_menu == MenuScreen::LoadStates) {
+    } else if (s_menu == MenuScreen::SaveStates || s_menu == MenuScreen::LoadStates ||
+               s_menu == MenuScreen::Resume) {
         RenderStates(dl, display_size, ease, rows);
     } else {
         RenderMenu(dl, display_size, ease, rows);

@@ -170,5 +170,10 @@
     "settings_mgba_value_top_right": "右上",
     "settings_mgba_value_unlimited": "無制限",
     "settings_mgba_value_up": "上",
-    "settings_mgba_value_use_device_sensor_if_available": "利用可能な場合は端末センサーを使用する"
+    "settings_mgba_value_use_device_sensor_if_available": "利用可能な場合は端末センサーを使用する",
+    "emulator_auto_slot": "オート (%s)",
+    "emulator_auto_loaded": "オートセーブをロードしました",
+    "emulator_continue": "続きから",
+    "emulator_start_over": "最初から",
+    "emulator_resume_title": "前回の続きから再開しますか？"
 }

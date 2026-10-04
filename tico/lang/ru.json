@@ -172,5 +172,10 @@
     "settings_mgba_value_top_right": "Сверху справа",
     "settings_mgba_value_unlimited": "Без ограничений",
     "settings_mgba_value_up": "Вверх",
-    "settings_mgba_value_use_device_sensor_if_available": "Использовать датчик устройства"
+    "settings_mgba_value_use_device_sensor_if_available": "Использовать датчик устройства",
+    "emulator_auto_slot": "Авто (%s)",
+    "emulator_auto_loaded": "Автосохранение загружено",
+    "emulator_continue": "Продолжить",
+    "emulator_start_over": "Начать заново",
+    "emulator_resume_title": "Продолжить с того места, где вы остановились?"
 }

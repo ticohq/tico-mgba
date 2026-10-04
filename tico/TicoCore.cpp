@@ -8,6 +8,7 @@
 #include <archive.h>
 #include <archive_entry.h>
 #include "TicoConfig.h"
+#include "TicoSafeFile.h"
 #include "TicoUtils.h"
 #include <algorithm>
 #include <json.hpp>
@@ -47,6 +48,11 @@ static bool s_vibrationInitialized = false;
 
 #define tico_debug_log(...) LOG_CORE(__VA_ARGS__)
 
+// Earlier versions kept in backups/ beside each file: the last few sessions'
+// saves, and the state each slot held before it was saved over.
+static constexpr int kSaveBackups = 3;
+static constexpr int kStateBackups = 1;
+
 // The cartridge clock (S-RTC, SPC7110), kept beside the save as <rom>.rtc
 // like RetroArch does. Only those few carts have one.
 static std::string RtcPath(const std::string &gamePath)
@@ -83,12 +89,10 @@ void TicoCore::SaveRtcData()
 
     TicoConfig::MakeDirs(TicoConfig::SavesPath());
     const std::string path = RtcPath(m_gamePath);
-    std::ofstream file(path, std::ios::binary);
-    if (file)
-    {
-        file.write((const char *)data, size);
+    if (TicoSafeFile::Write(path, data, size, kSaveBackups))
         tico_debug_log("Saved RTC to %s", path.c_str());
-    }
+    else
+        tico_debug_log("ERROR: could not save RTC to %s", path.c_str());
 }
 
 void TicoCore::LoadSaveData()
@@ -151,12 +155,10 @@ void TicoCore::SaveSaveData()
 
     std::string savePath = TicoConfig::SavesPath() + filename + ".sav";
 
-    std::ofstream file(savePath, std::ios::binary);
-    if (file)
-    {
-        file.write((const char *)data, size);
+    if (TicoSafeFile::Write(savePath, data, size, kSaveBackups))
         tico_debug_log("Saved SRAM to %s", savePath.c_str());
-    }
+    else
+        tico_debug_log("ERROR: could not save SRAM to %s", savePath.c_str());
 }
 
 #include "libretro.h"
@@ -1357,14 +1359,13 @@ bool TicoCore::SaveState(const std::string &path)
         return false;
     }
 
-    FILE *fp = fopen(path.c_str(), "wb");
-    if (!fp)
+    // the slot's previous state stays in backups/ (one level)
+    const bool written = TicoSafeFile::Write(path, data.data(), size, kStateBackups);
+    if (!written)
     {
-        tico_debug_log("ERROR: Failed to open file for save state: %s", path.c_str());
+        tico_debug_log("ERROR: Failed to write save state: %s", path.c_str());
         return false;
     }
-    const bool written = fwrite(data.data(), 1, size, fp) == size;
-    fclose(fp);
     tico_debug_log("Saved state to %s", path.c_str());
 
     const std::string progressPath = ProgressPath(path);

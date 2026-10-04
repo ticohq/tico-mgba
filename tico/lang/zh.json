@@ -167,5 +167,10 @@
     "settings_mgba_value_top_right": "右上",
     "settings_mgba_value_unlimited": "无限制",
     "settings_mgba_value_up": "上",
-    "settings_mgba_value_use_device_sensor_if_available": "如果可用则使用设备传感器"
+    "settings_mgba_value_use_device_sensor_if_available": "如果可用则使用设备传感器",
+    "emulator_auto_slot": "自动 (%s)",
+    "emulator_auto_loaded": "已载入自动存档",
+    "emulator_continue": "继续",
+    "emulator_start_over": "重新开始",
+    "emulator_resume_title": "从上次离开的地方继续吗？"
 }

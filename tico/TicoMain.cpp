@@ -581,6 +581,44 @@ static std::string StatePath(int slot)
     return dir + romName + ".state" + std::to_string(slot);
 }
 
+// The state the game is left in, saved to the auto slot (listed first in Load
+// State) whenever the core closes: Exit, Restart, the library, HOME.
+static void AutoSaveState()
+{
+    if (!g_core || !g_core->IsGameLoaded())
+        return;
+    const std::string path = StatePath(OverlayUI::kAutoStateSlot - 1);
+    if (g_core->SaveState(path))
+        SaveStatePicture(path + ".png");
+}
+
+// Set when a game starts; once its first frame has run, the menu asks whether
+// to continue from the auto save, if it has one.
+static bool g_offerResume = false;
+static void OpenMenu();
+
+static void OfferResume()
+{
+    g_offerResume = false;
+    struct stat st;
+    if (!g_core || g_core->IsHardcoreActive() ||
+        stat(StatePath(OverlayUI::kAutoStateSlot - 1).c_str(), &st) != 0)
+        return;
+    // tico's General > Continue Last Game
+    const std::string mode = OverlayConfig::ResumeOnLaunch();
+    if (mode == "never")
+        return;
+    if (mode == "always")
+    {
+        if (g_core->LoadState(StatePath(OverlayUI::kAutoStateSlot - 1)))
+            OverlayUI::ShowToast(SwitchFrontend::OverlayTranslation::tr("emulator_auto_loaded"));
+        return;
+    }
+    OpenMenu();
+    if (g_menuOpen)
+        OverlayUI::ShowResumePrompt();
+}
+
 //==============================================================================
 // Shaders
 //==============================================================================
@@ -991,11 +1029,13 @@ static void RunMenuAction()
             const std::string slug = TicoConfig::CURRENT_SLUG;
             const std::string title = g_titleArg;
             CloseMenu();
+            AutoSaveState();
             TicoVulkan::WaitIdle();
             g_core.reset();
             StopFastForward();
             AudioFlushCallback(); // nothing of the old session plays into the new one
             StartGame(slug, path, title);
+            g_offerResume = false; // Restart means from the start
         }
         return;
     default:
@@ -1019,7 +1059,10 @@ static void RunMenuAction()
         else
         {
             const bool loaded = g_core->LoadState(StatePath(slot - 1));
-            OverlayUI::ShowToast(TrFormat(loaded ? "emulator_state_loaded" : "emulator_load_failed", slot));
+            if (loaded && slot == OverlayUI::kAutoStateSlot)
+                OverlayUI::ShowToast(SwitchFrontend::OverlayTranslation::tr("emulator_auto_loaded"));
+            else
+                OverlayUI::ShowToast(TrFormat(loaded ? "emulator_state_loaded" : "emulator_load_failed", slot));
         }
         CloseMenu();
     }
@@ -1543,6 +1586,7 @@ static void StartGame(const std::string &slug, const std::string &romArg, const 
         return;
     }
     g_pacedFps = 0.0; // UpdateFramePacing sets the audio rate for this game
+    g_offerResume = true;
     if (g_core->ConsumeCheatsRecovered())
         OverlayUI::ShowToast(SwitchFrontend::OverlayTranslation::tr("emulator_cheats_recovered"),
                              OverlayUI::ToastCorner::TopRight);
@@ -1553,6 +1597,7 @@ static void ShowLibrary()
 {
     if (g_core)
     {
+        AutoSaveState();
         TicoVulkan::WaitIdle();
         g_core.reset();
     }
@@ -1710,6 +1755,8 @@ void Render()
             g_frameAccum -= 1.0;
             g_core->RunFrame();
         }
+        if (g_offerResume)
+            OfferResume();
     }
     else if (g_core)
     {
@@ -1948,6 +1995,7 @@ int main(int argc, char *argv[])
     }
 
     LOG_INFO("HOME", "Starting cleanup...");
+    AutoSaveState();
     TicoVulkan::WaitIdle();
     OverlayUI::SetSlotOccupiedCallback(nullptr);
     OverlayUI::SetSlotPreviewCallback(nullptr);
