@@ -14,6 +14,8 @@
 #include <mgba/core/log.h>
 #include <mgba/core/serialize.h>
 #include <mgba/core/version.h>
+#include <mgba-util/audio-buffer.h>
+#include "libretro-audio.h"
 #ifdef M_CORE_GB
 #include <mgba/gb/core.h>
 #include <mgba/internal/gb/gb.h>
@@ -28,6 +30,7 @@
 #endif
 #include <mgba-util/memory.h>
 #include <mgba-util/vfs.h>
+#include "libretro-vfs.h"
 
 #ifndef __LIBRETRO__
 #error "Can't compile the libretro core as anything other than libretro."
@@ -44,8 +47,7 @@ FS_Archive sdmcArchive;
 
 #include "libretro_core_options.h"
 
-#define GBA_RESAMPLED_RATE 65536
-static unsigned targetSampleRate = GBA_RESAMPLED_RATE;
+#define GBA_AUDIO_CHUNK_FRAMES 1024
 #define GB_SAMPLES 512
 /* An alpha factor of 1/180 is *somewhat* equivalent
  * to calculating the average for the last 180
@@ -67,8 +69,6 @@ static retro_set_rumble_state_t rumbleCallback;
 static retro_sensor_get_input_t sensorGetCallback;
 static retro_set_sensor_state_t sensorStateCallback;
 
-static bool libretro_supports_bitmasks = false;
-
 static void GBARetroLog(struct mLogger* logger, int category, enum mLogLevel level, const char* format, va_list args);
 
 static void _postAudioBuffer(struct mAVStream*, struct mAudioBuffer*);
@@ -88,9 +88,8 @@ static void _setupMaps(struct mCore* core);
 
 static struct mCore* core;
 static mColor* outputBuffer = NULL;
-struct mAudioBuffer audioResampleBuffer;
-struct mAudioResampler audioResampler;
-static int16_t* audioSampleBuffer = NULL;
+static struct LibretroAudioConverter audioConverter;
+static int16_t *audioSampleBuffer = NULL;
 static size_t audioSampleBufferSize;
 static void* data;
 static size_t dataSize;
@@ -116,7 +115,6 @@ static unsigned camHeight;
 static unsigned imcapWidth;
 static unsigned imcapHeight;
 static size_t camStride;
-static bool envVarsUpdated;
 static unsigned frameskipType;
 static unsigned frameskipThreshold;
 static uint16_t frameskipCounter;
@@ -143,12 +141,6 @@ static const int keymap[] = {
 	RETRO_DEVICE_ID_JOYPAD_UP,    RETRO_DEVICE_ID_JOYPAD_DOWN,  RETRO_DEVICE_ID_JOYPAD_R,
 	RETRO_DEVICE_ID_JOYPAD_L,
 };
-
-#ifndef GIT_VERSION
-#define GIT_VERSION ""
-#endif
-const char* const projectVersion = "0.11-dev" GIT_VERSION;
-const char* const projectName = "mGBA";
 
 /* Maximum number of consecutive frames that
  * can be skipped */
@@ -259,7 +251,6 @@ static void _loadFrameskipSettings(struct mCoreOptions* opts) {
 
 /* Audio post processing */
 static void _audioLowPassFilter(int16_t* buffer, int count) {
-	int samples = count;
 	int16_t* out = buffer;
 
 	/* Restore previous samples */
@@ -270,19 +261,21 @@ static void _audioLowPassFilter(int16_t* buffer, int count) {
 	int32_t factorA = audioLowPassRange;
 	int32_t factorB = 0x10000 - factorA;
 
-	do {
+	int samples;
+	for (samples = 0; samples < count; ++samples) {
 		/* Apply low-pass filter */
-		audioLowPassLeft = (audioLowPassLeft * factorA) + (*out * factorB);
-		audioLowPassRight = (audioLowPassRight * factorA) + (*(out + 1) * factorB);
+		audioLowPassLeft = (audioLowPassLeft * factorA) + (out[0] * factorB);
+		audioLowPassRight = (audioLowPassRight * factorA) + (out[1] * factorB);
 
 		/* 16.16 fixed point */
 		audioLowPassLeft >>= 16;
 		audioLowPassRight >>= 16;
 
 		/* Update sound buffer */
-		*out++ = (int16_t) audioLowPassLeft;
-		*out++ = (int16_t) audioLowPassRight;
-	} while (--samples);
+		out[0] = (int16_t) audioLowPassLeft;
+		out[1] = (int16_t) audioLowPassRight;
+		out += 2;
+	};
 
 	/* Save last samples for next frame */
 	audioLowPassLeftPrev = audioLowPassLeft;
@@ -1196,8 +1189,8 @@ static void _reloadSettings(void) {
 	}
 #endif
 
-	_loadFrameskipSettings(&opts);
 	_loadAudioLowPassFilterSettings();
+	_loadFrameskipSettings(&opts);
 
 	var.key = "mgba_idle_optimization";
 	var.value = 0;
@@ -1250,6 +1243,7 @@ unsigned retro_api_version(void) {
 
 void retro_set_environment(retro_environment_t env) {
 	environCallback = env;
+	libretroVFSInit(env);
 
 #ifdef M_CORE_GB
 	const struct GBColorPreset* presets;
@@ -1312,17 +1306,17 @@ void retro_get_system_av_info(struct retro_system_av_info* info) {
 	core->currentVideoSize(core, &width, &height);
 	info->geometry.base_width = width;
 	info->geometry.base_height = height;
+	info->geometry.aspect_ratio = width / (double) height;
 
 	core->baseVideoSize(core, &width, &height);
 	info->geometry.max_width = width;
 	info->geometry.max_height = height;
 
-	info->geometry.aspect_ratio = width / (double) height;
 	info->timing.fps = core->frequency(core) / (float) core->frameCycles(core);
 
 #ifdef M_CORE_GBA
 	if (core->platform(core) == mPLATFORM_GBA) {
-		info->timing.sample_rate = targetSampleRate;
+		info->timing.sample_rate = GBA_OUTPUT_RATE;
 	} else {
 #endif
 		info->timing.sample_rate = core->audioSampleRate(core);
@@ -1395,6 +1389,10 @@ void retro_init(void) {
 	lux.readLuminance = _readLux;
 	lux.sample = _updateLux;
 	_updateLux(&lux);
+	if (luxSensorUsed && !luxSensorEnabled) {
+		// No illuminance sensor was found during startup, but it might finish setup before the first frame
+		sensorsInitDone = false;
+	}
 
 	struct retro_log_callback log;
 	if (environCallback(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log)) {
@@ -1415,13 +1413,10 @@ void retro_init(void) {
 	imageSource.stopRequestImage = _stopImage;
 	imageSource.requestImage = _requestImage;
 
-	if (environCallback(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
-		libretro_supports_bitmasks = true;
-
-	frameskipType = 0;
-	frameskipThreshold = 0;
-	frameskipCounter = 0;
-	retroAudioBuffActive = false;
+	frameskipType           = 0;
+	frameskipThreshold      = 0;
+	frameskipCounter        = 0;
+	retroAudioBuffActive    = false;
 	retroAudioBuffOccupancy = 0;
 	retroAudioBuffUnderrun = false;
 	retroAudioLatency = 0;
@@ -1441,9 +1436,6 @@ void retro_deinit(void) {
 #if defined(COLOR_16_BIT) && defined(COLOR_5_6_5)
 	_deinitPostProcessing();
 #endif
-
-	mAudioBufferDeinit(&audioResampleBuffer);
-	mAudioResamplerDeinit(&audioResampler);
 
 	if (audioSampleBuffer) {
 		free(audioSampleBuffer);
@@ -1532,7 +1524,7 @@ void retro_run(void) {
 	}
 
 	keys = 0;
-	int i;
+	unsigned i;
 	if (useBitmasks) {
 		int16_t joypadMask = inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_MASK);
 		for (i = 0; i < sizeof(keymap) / sizeof(*keymap); ++i) {
@@ -1553,7 +1545,6 @@ void retro_run(void) {
 		                   inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2),
 		                   inputCallback(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2));
 	}
-
 	core->setKeys(core, keys);
 
 	if (!luxSensorUsed) {
@@ -1673,26 +1664,23 @@ void retro_run(void) {
 
 #ifdef M_CORE_GBA
 	if (core->platform(core) == mPLATFORM_GBA) {
+		static int16_t coreSamples[GBA_AUDIO_CHUNK_FRAMES * 2];
 		struct mAudioBuffer* coreBuffer = core->getAudioBuffer(core);
-		int coreSamplesAvail = mAudioBufferAvailable(coreBuffer);
-		if (coreSamplesAvail > 0) {
-			unsigned coreSampleRate = core->audioSampleRate(core);
-			size_t samplesProduced;
-			if (coreSampleRate != targetSampleRate) {
-				/* Resample generated audio */
-				mAudioResamplerSetSource(&audioResampler, coreBuffer, coreSampleRate, true);
-				mAudioResamplerProcess(&audioResampler);
-				/* Output resampled audio */
-				size_t samplesAvail = mAudioBufferAvailable(&audioResampleBuffer);
-				samplesProduced = mAudioBufferRead(&audioResampleBuffer, audioSampleBuffer, samplesAvail);
-			} else {
-				samplesProduced = mAudioBufferRead(coreBuffer, audioSampleBuffer, coreSamplesAvail);
+		unsigned coreSampleRate = core->audioSampleRate(core);
+		if (coreSampleRate != audioConverter.inputRate) {
+			audioConverterReset(&audioConverter, coreSampleRate);
+		}
+		while (true) {
+			size_t read = mAudioBufferRead(coreBuffer, coreSamples, GBA_AUDIO_CHUNK_FRAMES);
+			if (!read) {
+				break;
 			}
-			if (samplesProduced > 0) {
+			size_t produced = audioConverterProcess(&audioConverter, coreSamples, read, audioSampleBuffer);
+			if (produced > 0) {
 				if (audioLowPassEnabled) {
-					_audioLowPassFilter(audioSampleBuffer, samplesProduced);
+					_audioLowPassFilter(audioSampleBuffer, produced);
 				}
-				audioCallback(audioSampleBuffer, samplesProduced);
+				audioCallback(audioSampleBuffer, (size_t)produced);
 			}
 		}
 	}
@@ -1979,35 +1967,21 @@ bool retro_load_game(const struct retro_game_info* game) {
 	memset(outputBuffer, 0xFFFF, VIDEO_BUFF_SIZE);
 	core->setVideoBuffer(core, outputBuffer, VIDEO_WIDTH_MAX);
 
-#ifdef M_CORE_GBA
+	#ifdef M_CORE_GBA
 	/* GBA emulation produces a fairly regular number
 	 * of audio samples per frame that is consistent
 	 * with the set sample rate. We therefore consume
 	 * audio samples in retro_run() to achieve the
 	 * best possible frame pacing */
 	if (core->platform(core) == mPLATFORM_GBA) {
-		size_t audioSamplesPerFrame, audioBufferSize;
-		if (!environCallback(RETRO_ENVIRONMENT_GET_TARGET_SAMPLE_RATE, &targetSampleRate))
-			targetSampleRate = GBA_RESAMPLED_RATE;
-		/* Get nominal output samples per frame */
-		audioSamplesPerFrame =
-		    (size_t) (((float) targetSampleRate * (float) core->frameCycles(core) / (float) core->frequency(core)) +
-		              0.5f);
-		/* Round up to nearest multiple of 1024
-		 * > This is more than we need, but
-		 *   no harm in being safe... */
-		audioBufferSize = ((audioSamplesPerFrame + 1024 - 1) / 1024) * 1024;
-		/* Initialise resample buffer */
-		mAudioBufferInit(&audioResampleBuffer, audioBufferSize, 2);
-		/* Initialise resampler */
-		mAudioResamplerInit(&audioResampler, mINTERPOLATOR_SINC);
-		mAudioResamplerSetDestination(&audioResampler, &audioResampleBuffer, targetSampleRate);
-		/* Initialise output sample buffer
-		 * > Multiply size by 2 (channels) */
-		audioSampleBufferSize = audioBufferSize * 2;
+		/* Output is a fixed 65536 Hz; the converter turns any of the
+		 * four hardware rates into it with exact power-of-two steps.
+		 * Buffer must hold one chunk after 2x upsampling. */
+		audioConverterReset(&audioConverter, core->audioSampleRate(core));
+		audioSampleBufferSize = GBA_AUDIO_CHUNK_FRAMES * 2 * 2;
 		audioSampleBuffer = malloc(audioSampleBufferSize * sizeof(int16_t));
 	} else
-#endif
+	#endif
 	{
 		/* GB/GBC emulation does not produce a number
 		 * of samples per frame that is consistent with
@@ -2042,6 +2016,7 @@ bool retro_load_game(const struct retro_game_info* game) {
 	if (core->platform(core) == mPLATFORM_GBA) {
 		core->setPeripheral(core, mPERIPH_GBA_LUMINANCE, &lux);
 		biosName = "gba_bios.bin";
+
 	}
 #endif
 
@@ -2194,7 +2169,6 @@ void retro_cheat_set(unsigned index, bool enabled, const char* code) {
 			} else {
 				realCode[pos] = code[i];
 			}
-
 			if (pos == 11 || !realCode[pos]) {
 				realCode[pos] = '\0';
 				mCheatAddLine(cheatSet, realCode, 0);
@@ -2402,7 +2376,7 @@ size_t retro_get_memory_size(unsigned id) {
 			case GB_MBC3_RTC:
 				return sizeof(struct GBMBCRTCSaveBuffer);
 			default:
-				break;
+				return 0;
 			}
 #endif
 		default:
