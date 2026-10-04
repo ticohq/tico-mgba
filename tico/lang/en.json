@@ -109,5 +109,10 @@
     "settings_mgba_tab_perf": "Perf.",
     "settings_mgba_tab_system": "System",
     "settings_mgba_tab_video": "Video",
-    "settings_mgba_use_bios_file": "Use BIOS File"
+    "settings_mgba_use_bios_file": "Use BIOS File",
+    "emulator_auto_slot": "Auto (%s)",
+    "emulator_auto_loaded": "Auto save loaded",
+    "emulator_continue": "Continue",
+    "emulator_start_over": "Start Over",
+    "emulator_resume_title": "Continue where you left off?"
 }

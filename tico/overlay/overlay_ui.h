@@ -48,6 +48,10 @@ enum class ToastCorner {
     BottomRight,
 };
 
+// The slot (1-based) the frontend saves to automatically when the game closes;
+// Load State lists it first, as "Auto". Slots 1-5 are the player's.
+constexpr int kAutoStateSlot = 6;
+
 bool IsSaveStateAction(Action action);
 bool IsLoadStateAction(Action action);
 int GetStateSlotForAction(Action action);
@@ -59,6 +63,10 @@ Action Render(int display_w, int display_h);
 void SetGameTitle(std::string title);
 // RetroAchievements hardcore: Load State, Rewind and Cheats leave the menu.
 void SetHardcoreMode(bool hardcore);
+// Asks whether to continue from the auto save (its picture and when it was
+// made) or start over. Call right after showing the overlay; Continue returns
+// the load action for kAutoStateSlot, Start Over (or B) Action::Resume.
+void ShowResumePrompt();
 void SetNickname(std::string nickname);
 void SetAvatarTextureId(unsigned long long texture_id);
 // The selection border strip for the tint picked in tico (0 when there is

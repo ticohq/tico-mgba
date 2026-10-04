@@ -169,5 +169,10 @@
     "settings_mgba_value_top_right": "Arriba a la derecha",
     "settings_mgba_value_unlimited": "Ilimitado",
     "settings_mgba_value_up": "Arriba",
-    "settings_mgba_value_use_device_sensor_if_available": "Utilizar dispositivo sensor si está disponible"
+    "settings_mgba_value_use_device_sensor_if_available": "Utilizar dispositivo sensor si está disponible",
+    "emulator_auto_slot": "Automático (%s)",
+    "emulator_auto_loaded": "Guardado automático cargado",
+    "emulator_continue": "Continuar",
+    "emulator_start_over": "Empezar de nuevo",
+    "emulator_resume_title": "¿Continuar donde lo dejaste?"
 }

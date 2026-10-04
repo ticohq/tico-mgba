@@ -482,6 +482,18 @@ bool DarkMode() {
     return !root.is_discarded() && root.is_object() && root.value("dark_mode", false);
 }
 
+std::string ResumeOnLaunch() {
+    std::string content;
+    if (!ReadWholeFile("sdmc:/tico/config/general.jsonc", content)) {
+        return "ask";
+    }
+    const nlohmann::json root = nlohmann::json::parse(StripJsonComments(content), nullptr, false);
+    const std::string mode = !root.is_discarded() && root.is_object()
+                                 ? root.value("resume_on_launch", std::string("ask"))
+                                 : std::string("ask");
+    return (mode == "always" || mode == "never") ? mode : "ask";
+}
+
 std::string GetConfigValue(std::string_view key, std::string_view default_value) {
     return GetManager().GetConfigValue(key, default_value);
 }
