@@ -6,6 +6,7 @@
   "settings": "config/modules/mgba/settings.json",
   "config_file": "mgba.jsonc",
   "is_libretro": true,
+  "achievements": true,
   "systems": [
     {
       "slug": "gba",
