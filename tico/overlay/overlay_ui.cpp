@@ -62,6 +62,10 @@ enum class MenuScreen {
     FolderConfirm,
     // offered as the game starts when it has an auto save: Continue or Start Over
     Resume,
+    // Delete/Cancel before a game's own settings are deleted
+    GameSettingsConfirm,
+    // ShowNotice's message and choices
+    Notice,
     // Yes/Cancel before Restart or Exit Game
     GameConfirm,
 };
@@ -446,12 +450,25 @@ std::string QuickItemLabel(QuickItem item) {
 // Categories the frontend adds after the settings.json ones.
 enum class ExtraCategory {
     None,
+    Players,
+    Game,
     Shaders,
     Library,
 };
 
+PlayerCallbacks s_player_cb;
+std::string s_notice_message;
+std::vector<std::string> s_notice_choices;
+int s_notice_choice = -1;
+
 std::vector<ExtraCategory> ExtraCategories() {
     std::vector<ExtraCategory> extra;
+    if (s_player_cb.ports) {
+        extra.push_back(ExtraCategory::Players);
+    }
+    if (TicoConfig::HasGame()) {
+        extra.push_back(ExtraCategory::Game);
+    }
     if (s_shader_cb.parameters) {
         extra.push_back(ExtraCategory::Shaders);
     }
@@ -482,14 +499,67 @@ bool LibraryCategoryActive() {
     return ExtraCategoryAt(s_category_selected) == ExtraCategory::Library;
 }
 
+bool GameCategoryActive() {
+    return ExtraCategoryAt(s_category_selected) == ExtraCategory::Game;
+}
+
+bool PlayersCategoryActive() {
+    return ExtraCategoryAt(s_category_selected) == ExtraCategory::Players;
+}
+
+// The Players category: each port and what it has, a note, then the row that
+// opens the system's controller screen to change who is which player.
+std::vector<MenuRow> BuildPlayerRows() {
+    std::vector<MenuRow> rows;
+    const std::vector<std::string> ports = s_player_cb.ports ? s_player_cb.ports() : std::vector<std::string>{};
+    const std::string format = TrOr("emulator_player", "Player %d");
+    for (std::size_t i = 0; i < ports.size(); ++i) {
+        char label[64];
+        std::snprintf(label, sizeof(label), format.c_str(), static_cast<int>(i) + 1);
+        MenuRow row{label};
+        row.value = ports[i].empty() ? TrOr("emulator_not_connected", "Not connected") : ports[i];
+        row.static_value = true;
+        row.dimmed = ports[i].empty();
+        rows.push_back(row);
+    }
+    const std::string note = s_player_cb.note ? s_player_cb.note() : std::string();
+    if (!note.empty()) {
+        MenuRow row{note};
+        row.dimmed = true;
+        rows.push_back(row);
+    }
+    rows.push_back({TrOr("emulator_change_controllers", "Change controller order")});
+    return rows;
+}
+
+// The This Game category: save the current settings as the game's own, or,
+// once it has them, delete them; then what that means.
+std::vector<MenuRow> BuildGameRows() {
+    const bool active = TicoConfig::GameSettingsActive();
+    MenuRow action{active ? TrOr("emulator_game_settings_delete", "Delete this game's settings")
+                          : TrOr("emulator_game_settings_save", "Save current settings for this game")};
+    MenuRow hint{active ? TrOr("emulator_game_only_on", "Changes apply to this game only")
+                        : TrOr("emulator_game_only_off", "Changes apply to every game")};
+    hint.dimmed = true;
+    return {action, hint};
+}
+
 std::string CategoryLabel(int index) {
     const auto& categories = TicoConfig::GetCategories();
     if (index >= 0 && index < static_cast<int>(categories.size())) {
         const auto& category = categories[static_cast<std::size_t>(index)];
         return TrLabel(category.label_key, category.fallback);
     }
-    return ExtraCategoryAt(index) == ExtraCategory::Library ? TrOr("emulator_library", "Library")
-                                                            : TrOr("emulator_shaders", "Shaders");
+    switch (ExtraCategoryAt(index)) {
+    case ExtraCategory::Players:
+        return TrOr("emulator_players", "Players");
+    case ExtraCategory::Game:
+        return TrOr("emulator_this_game", "This Game");
+    case ExtraCategory::Library:
+        return TrOr("emulator_library", "Library");
+    default:
+        return TrOr("emulator_shaders", "Shaders");
+    }
 }
 
 MenuScreen RootScreen() {
@@ -830,6 +900,12 @@ std::vector<MenuRow> BuildOptionRows() {
     if (LibraryCategoryActive()) {
         return BuildFolderRows();
     }
+    if (GameCategoryActive()) {
+        return BuildGameRows();
+    }
+    if (PlayersCategoryActive()) {
+        return BuildPlayerRows();
+    }
     std::vector<MenuRow> rows;
     for (const TicoConfig::OptionDef* shown : VisibleOptions()) {
         const TicoConfig::OptionDef& option = *shown;
@@ -998,6 +1074,15 @@ std::vector<MenuRow> BuildRows() {
     case MenuScreen::SettingsOptions:
         rows = BuildOptionRows();
         break;
+    case MenuScreen::Notice:
+        for (const std::string& choice : s_notice_choices) {
+            rows.push_back({choice});
+        }
+        break;
+    case MenuScreen::GameSettingsConfirm:
+        rows.push_back({TrOr("emulator_delete", "Delete")});
+        rows.push_back({TrOr("emulator_cancel", "Cancel")});
+        break;
     case MenuScreen::Resume:
         rows.push_back({TrOr("emulator_continue", "Continue")});
         rows.push_back({TrOr("emulator_start_over", "Start Over")});
@@ -1039,6 +1124,13 @@ std::string BuildTitle() {
         break;
     case MenuScreen::Resume:
         title = TrOr("emulator_resume_title", "Continue where you left off?");
+        break;
+    case MenuScreen::Notice:
+        title = s_notice_message;
+        break;
+    case MenuScreen::GameSettingsConfirm:
+        title = TrOr("emulator_game_settings_delete_confirm",
+                     "Delete this game's settings? It will use the shared settings again.");
         break;
     case MenuScreen::GameConfirm:
         title = s_confirm_item == QuickItem::Restart
@@ -1349,7 +1441,8 @@ void RenderMenu(ImDrawList* dl, ImVec2 display_size, float ease, const std::vect
     const bool wide = s_menu == MenuScreen::Cheats || s_menu == MenuScreen::ShaderBrowser ||
                       s_menu == MenuScreen::Library || s_menu == MenuScreen::FolderBrowser ||
                       s_menu == MenuScreen::FolderActions || s_menu == MenuScreen::FolderConfirm ||
-                      s_menu == MenuScreen::GameConfirm;
+                      s_menu == MenuScreen::GameConfirm || s_menu == MenuScreen::GameSettingsConfirm ||
+                      s_menu == MenuScreen::Notice;
     const float scale = ImGui::GetIO().FontGlobalScale;
     const float menu_width = kMenuWidth * (wide ? 1.5f : 1.0f) * scale;
     const float item_height = (wide ? 58.0f : 64.0f) * scale;
@@ -1600,9 +1693,11 @@ void RenderSettings(ImDrawList* dl, ImVec2 display_size, float ease) {
                   option_visible, option_count, ease);
 
     const TicoConfig::OptionDef* option = options_focused ? SelectedOption() : nullptr;
-    if (option && option->needs_restart) {
+    const bool restart_note = option && option->needs_restart;
+    if (restart_note || (TicoConfig::GameSettingsActive() && !GameCategoryActive())) {
         const std::string note =
-            TrOr("emulator_applies_next_launch", "Use Restart to apply");
+            restart_note ? TrOr("emulator_applies_next_launch", "Use Restart to apply")
+                         : TrOr("emulator_game_only_note", "Saving for this game only");
         const float note_size = ImGui::GetFontSize() * 0.62f;
         const ImVec2 note_text_size = font->CalcTextSizeA(note_size, FLT_MAX, 0.0f, note.c_str());
         dl->AddText(font, note_size,
@@ -1958,6 +2053,14 @@ bool IsActionInRange(Action action, Action first, Action last) {
     return value >= static_cast<int>(first) && value <= static_cast<int>(last);
 }
 
+// The game's own settings were saved or deleted: the core gets the values
+// that now apply (deleting brings the shared ones back).
+void OnGameSettingsChanged() {
+    ReloadHudPositions();
+    std::lock_guard lock(s_pending_mutex);
+    s_settings_changed = true;
+}
+
 // A setting was changed from the menu: tell the emulation thread, and say so
 // when the change only takes effect on the next launch.
 void OnOptionChanged(const TicoConfig::OptionDef& option) {
@@ -2165,6 +2268,21 @@ Action AcceptSelection(const std::vector<MenuRow>& rows) {
     }
     case MenuScreen::Resume:
         return s_selected == 0 ? MakeLoadActionForSlot(kAutoSlotIndex) : Action::Resume;
+    case MenuScreen::Notice: {
+        std::lock_guard lock(s_pending_mutex);
+        s_notice_choice = s_selected;
+        return Action::NoticeChoice;
+    }
+    case MenuScreen::GameSettingsConfirm:
+        if (s_selected == 0) {
+            TicoConfig::DeleteGameSettings();
+            OnGameSettingsChanged();
+            ShowToast(TrOr("emulator_game_settings_deleted", "This game uses the shared settings again"),
+                      ToastCorner::TopRight);
+        }
+        s_menu = MenuScreen::SettingsOptions;
+        s_selected = 0;
+        return Action::None;
     case MenuScreen::GameConfirm:
         if (s_selected == 0) {
             return s_confirm_item == QuickItem::Restart ? Action::Restart
@@ -2218,6 +2336,24 @@ Action AcceptSelection(const std::vector<MenuRow>& rows) {
         return Action::None;
     }
     case MenuScreen::SettingsOptions: {
+        if (PlayersCategoryActive()) {
+            return s_selected == static_cast<int>(rows.size()) - 1 ? Action::ControllerOrder
+                                                                    : Action::None;
+        }
+        if (GameCategoryActive()) {
+            if (s_selected == 0) {
+                if (TicoConfig::GameSettingsActive()) {
+                    s_menu = MenuScreen::GameSettingsConfirm;
+                    s_selected = 1; // the safe choice
+                } else {
+                    TicoConfig::SaveGameSettings();
+                    OnGameSettingsChanged();
+                    ShowToast(TrOr("emulator_game_settings_saved", "Settings saved for this game"),
+                              ToastCorner::TopRight);
+                }
+            }
+            return Action::None;
+        }
         if (LibraryCategoryActive()) {
             const std::vector<LibraryFolderGroup> groups = FolderGroups();
             const std::vector<FolderEntry> entries = FolderEntries(groups);
@@ -2312,6 +2448,16 @@ Action CancelScreen() {
         s_menu = MenuScreen::FolderActions;
         s_selected = 3;
         break;
+    case MenuScreen::GameSettingsConfirm:
+        s_menu = MenuScreen::SettingsOptions;
+        s_selected = 0;
+        break;
+    case MenuScreen::Notice: {
+        // B answers with the last choice (the way out)
+        std::lock_guard lock(s_pending_mutex);
+        s_notice_choice = static_cast<int>(s_notice_choices.size()) - 1;
+        return Action::NoticeChoice;
+    }
     case MenuScreen::SettingsOptions:
         s_menu = MenuScreen::SettingsCategories;
         s_selected = s_category_selected;
@@ -2505,6 +2651,26 @@ void SetVisible(bool visible) {
     }
 
     s_visible = visible;
+}
+
+void ShowNotice(std::string message, std::vector<std::string> choices) {
+    s_notice_message = std::move(message);
+    s_notice_choices = std::move(choices);
+    if (s_notice_choices.empty()) {
+        s_notice_choices.push_back(TrOr("emulator_ok", "OK"));
+    }
+    OpenScreen(MenuScreen::Notice);
+}
+
+int ConsumeNoticeChoice() {
+    std::lock_guard lock(s_pending_mutex);
+    const int choice = s_notice_choice;
+    s_notice_choice = -1;
+    return choice;
+}
+
+void SetPlayerCallbacks(PlayerCallbacks callbacks) {
+    s_player_cb = std::move(callbacks);
 }
 
 void ShowResumePrompt() {

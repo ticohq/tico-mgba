@@ -114,5 +114,19 @@
     "emulator_auto_loaded": "Auto save loaded",
     "emulator_continue": "Continue",
     "emulator_start_over": "Start Over",
-    "emulator_resume_title": "Continue where you left off?"
+    "emulator_resume_title": "Continue where you left off?",
+    "emulator_this_game": "This Game",
+    "emulator_game_only_on": "Changes apply to this game only",
+    "emulator_game_only_off": "Changes apply to every game",
+    "emulator_game_only_note": "Saving for this game only",
+    "emulator_game_settings_save": "Save current settings for this game",
+    "emulator_game_settings_delete": "Delete this game's settings",
+    "emulator_game_settings_delete_confirm": "Delete this game's settings? It will use the shared settings again.",
+    "emulator_game_settings_saved": "Settings saved for this game",
+    "emulator_game_settings_deleted": "This game uses the shared settings again",
+    "emulator_delete": "Delete",
+    "emulator_players": "Players",
+    "emulator_player": "Player %d",
+    "emulator_not_connected": "Not connected",
+    "emulator_change_controllers": "Change controller order"
 }

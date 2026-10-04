@@ -177,5 +177,19 @@
     "emulator_auto_loaded": "Автосохранение загружено",
     "emulator_continue": "Продолжить",
     "emulator_start_over": "Начать заново",
-    "emulator_resume_title": "Продолжить с того места, где вы остановились?"
+    "emulator_resume_title": "Продолжить с того места, где вы остановились?",
+    "emulator_this_game": "Эта игра",
+    "emulator_game_only_on": "Изменения действуют только для этой игры",
+    "emulator_game_only_off": "Изменения действуют для всех игр",
+    "emulator_game_only_note": "Сохраняется только для этой игры",
+    "emulator_game_settings_save": "Сохранить текущие настройки для этой игры",
+    "emulator_game_settings_delete": "Удалить настройки этой игры",
+    "emulator_game_settings_delete_confirm": "Удалить настройки этой игры? Она снова будет использовать общие настройки.",
+    "emulator_game_settings_saved": "Настройки сохранены для этой игры",
+    "emulator_game_settings_deleted": "Эта игра снова использует общие настройки",
+    "emulator_delete": "Удалить",
+    "emulator_players": "Игроки",
+    "emulator_player": "Игрок %d",
+    "emulator_not_connected": "Не подключён",
+    "emulator_change_controllers": "Изменить порядок контроллеров"
 }

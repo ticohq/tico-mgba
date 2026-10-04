@@ -40,6 +40,18 @@ bool SaveConfig();
 std::string GetConfigJson(std::string_view key);
 void SetConfigJson(const std::string& key, const std::string& json_text);
 
+// Per-game settings (Settings > This Game). SetGame names the running game by
+// its ROM path ("" for none, e.g. the library) and reads its overrides from
+// sdmc:/tico/config/games/<core>/<game>.jsonc, if it has them; while it has
+// them they are read first and take every change.
+void SetGame(const std::string& rom_path);
+bool HasGame();
+bool GameSettingsActive();
+// Gives the game its own file holding every current value, which then takes
+// every change; Delete removes it, so the game follows the core's settings.
+void SaveGameSettings();
+void DeleteGameSettings();
+
 // Hands every catalogued core option (its stored value, or its default) to
 // `apply`, keyed by its libretro variable name. Options without the core's
 // mgba_ prefix are the overlay's own and are skipped.

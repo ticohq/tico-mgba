@@ -508,11 +508,13 @@ bool TicoShaderChain::Init()
 {
     // Full-screen quad in RetroArch's convention: positions and texcoords both
     // span 0..1 with (0,0) top-left; the MVP maps that onto clip space.
+    // The quad four times, its texture turned 0, 90, 180 and 270 degrees
+    // counter-clockwise: the last pass draws the one SetRotation picked.
     const float quad[] = {
-        0, 0, 0, 1, 0, 0,
-        1, 0, 0, 1, 1, 0,
-        0, 1, 0, 1, 0, 1,
-        1, 1, 0, 1, 1, 1,
+        0, 0, 0, 1, 0, 0,  1, 0, 0, 1, 1, 0,  0, 1, 0, 1, 0, 1,  1, 1, 0, 1, 1, 1,
+        0, 0, 0, 1, 1, 0,  1, 0, 0, 1, 1, 1,  0, 1, 0, 1, 0, 0,  1, 1, 0, 1, 0, 1,
+        0, 0, 0, 1, 1, 1,  1, 0, 0, 1, 0, 1,  0, 1, 0, 1, 1, 0,  1, 1, 0, 1, 0, 0,
+        0, 0, 0, 1, 0, 1,  1, 0, 0, 1, 0, 0,  0, 1, 0, 1, 1, 1,  1, 1, 0, 1, 1, 0,
     };
     if (!TicoVulkan::CreateBuffer(m_quadBuffer, sizeof(quad), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT))
         return false;
@@ -943,11 +945,13 @@ struct TexRef
     TicoSlang::WrapMode wrap = TicoSlang::WrapMode::ClampToBorder;
 };
 
-TexRef FromPassSettings(const Image *img, const TicoSlang::Pass &settings)
+// `smooth` is the filter for a pass that does not choose one (RetroArch's
+// video_smooth).
+TexRef FromPassSettings(const Image *img, const TicoSlang::Pass &settings, bool smooth)
 {
     TexRef r;
     r.img = img;
-    r.linear = settings.filterSet && settings.filterLinear;
+    r.linear = settings.filterSet ? settings.filterLinear : smooth;
     r.mipmap = settings.mipmapInput && img && img->mipLevels > 1;
     r.wrap = settings.wrap;
     return r;
@@ -1039,21 +1043,21 @@ ImTextureID TicoShaderChain::Process(VkCommandBuffer cmd, uint32_t viewportWidth
         std::string rest;
         int n = 0;
         if (name == "Original")
-            return FromPassSettings(&m_source, rt.passes[0].cfg);
+            return FromPassSettings(&m_source, rt.passes[0].cfg, m_smooth);
         if (name == "Source")
             return FromPassSettings(index == 0 ? &m_source : &rt.passes[index - 1].output.img,
-                                    rt.passes[index].cfg);
+                                    rt.passes[index].cfg, m_smooth);
         if (StartsWith(name, "OriginalHistory", rest) && ParseIndex(rest, n))
         {
             const Image *img = n == 0 ? &m_source
                              : (size_t)n <= m_history.size() ? &m_history[n - 1] : nullptr;
-            return FromPassSettings(img, rt.passes[0].cfg);
+            return FromPassSettings(img, rt.passes[0].cfg, m_smooth);
         }
         if (StartsWith(name, "PassOutput", rest) && ParseIndex(rest, n) && (size_t)n < index)
-            return FromPassSettings(&rt.passes[n].output.img, settingsAfter(n));
+            return FromPassSettings(&rt.passes[n].output.img, settingsAfter(n), m_smooth);
         if (StartsWith(name, "PassFeedback", rest) && ParseIndex(rest, n) && (size_t)n < rt.passes.size() &&
             rt.passes[n].hasFeedback)
-            return FromPassSettings(&rt.passes[n].feedback.img, settingsAfter(n));
+            return FromPassSettings(&rt.passes[n].feedback.img, settingsAfter(n), m_smooth);
         if (StartsWith(name, "User", rest) && ParseIndex(rest, n) && (size_t)n < rt.luts.size())
         {
             const Lut &l = rt.luts[n];
@@ -1065,9 +1069,9 @@ ImTextureID TicoShaderChain::Process(VkCommandBuffer cmd, uint32_t viewportWidth
             if (alias.empty())
                 continue;
             if (name == alias && k < index)
-                return FromPassSettings(&rt.passes[k].output.img, settingsAfter(k));
+                return FromPassSettings(&rt.passes[k].output.img, settingsAfter(k), m_smooth);
             if (name == alias + "Feedback" && rt.passes[k].hasFeedback)
-                return FromPassSettings(&rt.passes[k].feedback.img, settingsAfter(k));
+                return FromPassSettings(&rt.passes[k].feedback.img, settingsAfter(k), m_smooth);
         }
         for (const Lut &l : rt.luts)
             if (name == l.name)
@@ -1214,7 +1218,8 @@ ImTextureID TicoShaderChain::Process(VkCommandBuffer cmd, uint32_t viewportWidth
         if (!p.pushData.empty())
             vkCmdPushConstants(cmd, p.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0,
                                (uint32_t)p.pushData.size(), p.pushData.data());
-        VkDeviceSize offset = 0;
+        const bool lastPass = &p == &rt.passes.back();
+        VkDeviceSize offset = lastPass ? (VkDeviceSize)m_rotation * 4 * 6 * sizeof(float) : 0;
         vkCmdBindVertexBuffers(cmd, 0, 1, &m_quadBuffer.buffer, &offset);
         vkCmdDraw(cmd, 4, 1, 0, 0);
         vkCmdEndRenderPass(cmd);
