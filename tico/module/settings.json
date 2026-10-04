@@ -44,7 +44,8 @@
                   "label": "Game Boy Advance",
                   "value": "Game Boy Advance"
                 }
-              ]
+              ],
+              "restart": true
             },
             {
               "key": "mgba_use_bios",
@@ -60,7 +61,8 @@
                   "label": "disabled",
                   "value": "OFF"
                 }
-              ]
+              ],
+              "restart": true
             },
             {
               "key": "mgba_skip_bios",
@@ -76,7 +78,8 @@
                   "label": "enabled",
                   "value": "ON"
                 }
-              ]
+              ],
+              "restart": true
             }
           ]
         }
@@ -386,7 +389,8 @@
                   "label": "disabled",
                   "value": "OFF"
                 }
-              ]
+              ],
+              "restart": true
             }
           ]
         },
@@ -645,7 +649,8 @@
                   "label": "enabled",
                   "value": "ON"
                 }
-              ]
+              ],
+              "restart": true
             }
           ]
         }
@@ -675,7 +680,8 @@
                   "label": "Don't Remove",
                   "value": "Don't Remove"
                 }
-              ]
+              ],
+              "restart": true
             }
           ]
         },

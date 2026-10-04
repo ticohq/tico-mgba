@@ -182,7 +182,12 @@ std::string TranslationManager::GetString(const std::string& key) const {
 }
 
 std::string tr(const std::string& key) {
-    return TranslationManager::Instance().GetString(key);
+    TranslationManager& manager = TranslationManager::Instance();
+    // a toast can come before the menu has ever opened (and loaded them)
+    if (!manager.IsLoaded()) {
+        manager.Init();
+    }
+    return manager.GetString(key);
 }
 
 } // namespace SwitchFrontend::OverlayTranslation

@@ -1571,7 +1571,7 @@ void RenderSettings(ImDrawList* dl, ImVec2 display_size, float ease) {
     const TicoConfig::OptionDef* option = options_focused ? SelectedOption() : nullptr;
     if (option && option->needs_restart) {
         const std::string note =
-            TrOr("emulator_applies_next_launch", "Applies the next time the game starts");
+            TrOr("emulator_applies_next_launch", "Use Restart to apply");
         const float note_size = ImGui::GetFontSize() * 0.62f;
         const ImVec2 note_text_size = font->CalcTextSizeA(note_size, FLT_MAX, 0.0f, note.c_str());
         dl->AddText(font, note_size,
@@ -1934,7 +1934,7 @@ void OnOptionChanged(const TicoConfig::OptionDef& option) {
         s_settings_changed = true;
     }
     if (option.needs_restart) {
-        ShowToast(TrOr("emulator_applies_next_launch", "Applies the next time the game starts"),
+        ShowToast(TrOr("emulator_applies_next_launch", "Use Restart to apply"),
                   ToastCorner::TopRight);
     }
 }

@@ -278,6 +278,10 @@ CHOICES = {
                      "Inferior direito", "Снизу справа", "右下"),
 }
 
+# Options the libretro core reads only when a game loads (_reloadSettings),
+# though their descriptions do not say so.
+RESTART_KEYS = {"mgba_gb_model", "mgba_use_bios", "mgba_skip_bios", "mgba_sgb_borders",
+                "mgba_idle_optimization", "mgba_force_gbp"}
 RESTART_SUFFIX = re.compile(r"\s*\((Restart Required|Reload Core|[^)]*[Nn]eustart[^)]*|[^)]*[Rr]einici[^)]*|"
                             r"[^)]*[Rr]edémarr[^)]*|[^)]*再起動[^)]*|[^)]*перезапуск[^)]*|"
                             r"[^)]*重启[^)]*|[^)]*[Rr]einicializa[^)]*)\)")
@@ -335,7 +339,7 @@ def build_settings(dump: dict) -> dict:
                 else:
                     option.update(type="enum", default=source["default"], choices=[
                         {"label": english_choice(v, l), "value": v} for v, l in source["values"]])
-                if RESTART_SUFFIX.search(source["desc"]):
+                if RESTART_SUFFIX.search(source["desc"]) or key in RESTART_KEYS:
                     option["restart"] = True
                 if key in DEPENDS_ON:
                     on, value = DEPENDS_ON[key]

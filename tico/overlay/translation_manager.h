@@ -14,6 +14,7 @@ public:
     static TranslationManager& Instance();
 
     bool Init();
+    bool IsLoaded() const { return !m_translations.empty(); }
     std::string GetString(const std::string& key) const;
 
 private:
