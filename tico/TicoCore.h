@@ -1,15 +1,14 @@
 /// @file TicoCore.h
 /// @brief Simplified libretro frontend for mgba with tico overlay
-/// GBA has no disk control - single cartridge only
 #pragma once
 
 #include <string>
 #include <map>
 #include <cstdint>
-#include <EGL/egl.h>
 #include <SDL.h>
 #include <vector>
 #include "libretro.h"
+#include "imgui.h"
 
 #ifdef __SWITCH__
 #include <switch.h>
@@ -42,23 +41,11 @@ struct RANotification {
     std::string title;
     std::string description;
     std::string badge_name;     // badge identifier or "ra_icon" for session start
-    unsigned int textureId = 0; // GL texture for the badge (0 = no badge)
+    ImTextureID textureId = ImTextureID_Invalid; // badge texture
     float timer = 0.0f;
     float duration = 4.0f; // total display time
     float slideIn = 0.4f;  // slide-in duration
     float slideOut = 0.4f; // slide-out duration
-};
-
-/// @brief Available post-processing shader types
-enum class ShaderType
-{
-    None = 0,
-    LCD,
-    xBRZ,
-    Eagle,
-    Dot,
-    LcdGridV2,
-    COUNT
 };
 
 /// @brief Simplified libretro core wrapper for mgba
@@ -71,7 +58,7 @@ public:
     /// @brief Initialize the core
     bool Init();
 
-    /// @brief Load a game ROM (GBA ROMs are loaded into memory)
+    /// @brief Load a game ROM (N64 ROMs are loaded into memory)
     bool LoadGame(const std::string &path);
     bool GetVariable(const char *key, const char **value);
 
@@ -80,6 +67,7 @@ public:
     const std::string& GetOSDMessage() const { return m_osdMessage; }
     int GetOSDFrames() const { return m_osdFrames; }
     void DecrementOSD() { if (m_osdFrames > 0) m_osdFrames--; }
+    void ShowOSD(const std::string &msg, int frames) { m_osdMessage = msg; m_osdFrames = frames; }
 
     /// @brief Unload current game
     void UnloadGame();
@@ -102,32 +90,62 @@ public:
     void ClearInputs();
 
     /// @brief Video/Audio info
-    unsigned int GetFrameTextureID() const {
-        return (m_activeShader != ShaderType::None && m_shaderTexture != 0) ? m_shaderTexture : m_frameTexture;
-    }
     float GetAspectRatio() const { return m_aspectRatio; }
     int GetFrameWidth() const { return m_frameWidth; }
     int GetFrameHeight() const { return m_frameHeight; }
-    int GetFBOWidth() const { return m_fboWidth; }
-    int GetFBOHeight() const { return m_fboHeight; }
     double GetFPS() const { return m_fps; }
     double GetSampleRate() const { return m_sampleRate; }
-    bool IsHWRender() const { return m_hwRender; }
 
-    /// @brief Shader pipeline
-    void InitShaderPipeline();
-    void SetShader(ShaderType type);
-    ShaderType GetShader() const { return m_activeShader; }
+    /// @brief Receives every new software frame from the core
+    typedef void (*VideoCallback_t)(const void *data, unsigned width, unsigned height,
+                                    size_t pitch, retro_pixel_format format);
+    void SetVideoCallback(VideoCallback_t cb) { m_videoCallback = cb; }
 
     /// @brief Get current game path
     std::string GetGamePath() const { return m_gamePath; }
 
-    /// @brief Save states
-    void SaveState(const std::string &path);
-    void LoadState(const std::string &path);
+    /// @brief Cheats from sdmc:/tico/cheats/gba/<game>.cheats (mGBA's format).
+    /// Every cheat starts off each launch; toggling only lasts the session.
+    struct Cheat {
+        std::string name;
+        std::vector<std::string> codes;      // code lines
+        std::vector<std::string> directives; // "!GSAv1" / "!PARv3" codec hints
+        bool enabled = false;
+    };
+    const std::vector<Cheat> &GetCheats() const { return m_cheats; }
+    void ToggleCheat(size_t index);
+    /// True once if the previous session ended without cleanup while cheats
+    /// were on (a freeze or a kill), so the frontend can say why they are off.
+    bool ConsumeCheatsRecovered()
+    {
+        const bool recovered = m_cheatsRecovered;
+        m_cheatsRecovered = false;
+        return recovered;
+    }
 
-    /// @brief Set EGL contexts for HW rendering
-    void SetHWRenderContext(SDL_Window *window, EGLContext mainCtx, EGLContext hwCtx);
+    /// @brief Save states
+    /// The state goes to `path`, rc_client's achievement progress beside it
+    /// (`path` + ".ra"). Loading is refused while hardcore is active.
+    bool SaveState(const std::string &path);
+    bool LoadState(const std::string &path);
+
+    /// True while rc_client runs the session in hardcore mode. Loading states
+    /// (and rewind, cheats, slow motion) must stay unavailable then.
+    bool IsHardcoreActive() const;
+
+    /// Hardcore rate-limits pausing so it can't be used to slow the game
+    /// down. False while a pause isn't allowed yet; `secondsRemaining` then
+    /// says how long until it is. Always true outside hardcore.
+    bool CanPause(int &secondsRemaining);
+
+    /// Keeps the RetroAchievements session alive while emulation is paused
+    /// (the quick menu is open): pings, server callbacks, badge uploads.
+    void Idle();
+
+    /// @brief Core options. LoadConfig reads mgba.jsonc (once); SetOption
+    /// changes a libretro variable, which the core re-reads next frame.
+    void EnsureConfigLoaded() { LoadConfig(); }
+    void SetOption(const std::string &key, const std::string &value);
 
     /// @brief Audio callback types
     typedef void (*AudioSampleCallback_t)(int16_t left, int16_t right);
@@ -149,12 +167,24 @@ public:
 private:
     void InitializeCore();
     void SetupCallbacks();
-    bool InitEGLDualContext();
-    void BindHWContext(bool enable);
-    void DestroyHWRenderContext();
 
     void LoadSaveData();
     void SaveSaveData();
+    std::string CheatFilePath(const char *extension) const;
+    void LoadCheats();
+    void ApplyCheats();
+    void ArmCheatGuard();
+    void DisarmCheatGuard();
+    std::vector<Cheat> m_cheats;
+    bool m_cheatsRecovered = false;
+    void LoadRtcData();
+    void SaveRtcData();
+
+    /// The loaded ROM, unpacked; kept for RetroAchievements hashing.
+    std::vector<uint8_t> m_romData;
+    static bool IsArchivePath(const std::string &path);
+    static bool ReadRomFile(const std::string &path, std::vector<uint8_t> &out);
+    static bool ReadRomFromArchive(const std::string &path, std::vector<uint8_t> &out);
 
     /// @name Libretro static callbacks (dispatch to instance)
     static bool EnvironmentCallback(unsigned cmd, void *data);
@@ -176,36 +206,15 @@ private:
     bool m_initialized = false;
     bool m_gameLoaded = false;
     bool m_paused = false;
-    bool m_hwRender = false;
     bool m_variablesUpdated = true;
     enum retro_pixel_format m_pixelFormat = RETRO_PIXEL_FORMAT_0RGB1555;
 
-    unsigned int m_frameTexture = 0;
-    unsigned int m_fbo = 0;
-    unsigned int m_fbo_rbo = 0;
-    int m_frameWidth = 640;
-    int m_frameHeight = 480;
-    int m_fboWidth = 0;
-    int m_fboHeight = 0;
+    int m_frameWidth = 256;
+    int m_frameHeight = 224;
     float m_aspectRatio = 4.0f / 3.0f;
     double m_fps = 60.0;
     double m_sampleRate = 44100.0;
-    void ResizeFBO(int width, int height);
-
-    // Shader post-processing pipeline
-    ShaderType m_activeShader = ShaderType::None;
-    unsigned int m_shaderFBO = 0;
-    unsigned int m_shaderTexture = 0;
-    unsigned int m_shaderProgram = 0;
-    unsigned int m_shaderVAO = 0;
-    unsigned int m_shaderVBO = 0;
-    int m_shaderTexWidth = 0;
-    int m_shaderTexHeight = 0;
-    bool m_shaderPipelineReady = false;
-    void ApplyShader(int srcWidth, int srcHeight);
-    void DestroyShaderPipeline();
-    unsigned int CompileShaderProgram(const char *vsSrc, const char *fsSrc);
-    // Shader sources are now free functions in TicoShaders.h
+    VideoCallback_t m_videoCallback = nullptr;
 
     AudioSampleCallback_t m_audioSampleCallback = nullptr;
     AudioSampleBatchCallback_t m_audioSampleBatchCallback = nullptr;
@@ -213,14 +222,6 @@ private:
 
     bool m_inputState[4][16] = {};
     int16_t m_analogState[4][2][2] = {};
-    int m_allocTexWidth = 0;
-    int m_allocTexHeight = 0;
-
-    SDL_Window *m_window = nullptr;
-    EGLDisplay m_eglDisplay = EGL_NO_DISPLAY;
-    EGLContext m_mainContext = EGL_NO_CONTEXT;
-    EGLContext m_hwContext = EGL_NO_CONTEXT;
-    EGLSurface m_eglSurface = EGL_NO_SURFACE;
 
     std::string m_systemDir;
     std::string m_saveDir;
@@ -255,11 +256,11 @@ public:
     void PushRANotification(const std::string& title, const std::string& desc,
                            const std::string& badge = "");
     
-    // RA badge cache (badge_name -> GL texture)
-    std::map<std::string, unsigned int> m_raBadgeCache;
-    unsigned int m_raIconTexture = 0;        // ra.svg icon
+    // RA badge cache (badge_name -> texture)
+    std::map<std::string, ImTextureID> m_raBadgeCache;
+    ImTextureID m_raIconTexture = ImTextureID_Invalid; // ra.svg icon
     void LoadRAIcon();                        // load ra.svg as texture
-    unsigned int GetRABadgeTexture(const std::string& badge_name);
+    ImTextureID GetRABadgeTexture(const std::string& badge_name);
     void DownloadAndCacheBadge(const std::string& badge_name); // runs on worker
     void PreloadRABadges();                   // called after game identification
     std::vector<std::pair<std::string, std::vector<unsigned char>>> m_raPendingBadgeUploads;
@@ -291,5 +292,5 @@ public:
     static void RAWorkerEntry(void* arg);
 
     std::vector<TicoMemoryMap> m_memoryMaps;
-    uint32_t m_consoleId = 5;
+    uint32_t m_consoleId = 5; // RetroAchievements console of the loaded game
 };

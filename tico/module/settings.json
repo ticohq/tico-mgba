@@ -1,0 +1,1622 @@
+{
+  "core_id": "mgba",
+  "display_name": "mGBA",
+  "config_file": "mgba.jsonc",
+  "slugs": [
+    "gba"
+  ],
+  "bool_true_value": "enabled",
+  "bool_false_value": "disabled",
+  "tabs": [
+    {
+      "name": "settings_mgba_tab_system",
+      "sections": [
+        {
+          "title": "settings_mgba_section_system",
+          "options": [
+            {
+              "key": "mgba_gb_model",
+              "label": "settings_mgba_game_boy_model",
+              "type": "enum",
+              "default": "Autodetect",
+              "choices": [
+                {
+                  "label": "Autodetect",
+                  "value": "Autodetect"
+                },
+                {
+                  "label": "Game Boy",
+                  "value": "Game Boy"
+                },
+                {
+                  "label": "Super Game Boy",
+                  "value": "Super Game Boy"
+                },
+                {
+                  "label": "Game Boy Color",
+                  "value": "Game Boy Color"
+                },
+                {
+                  "label": "Super Game Boy Color",
+                  "value": "Super Game Boy Color"
+                },
+                {
+                  "label": "Game Boy Advance",
+                  "value": "Game Boy Advance"
+                }
+              ]
+            },
+            {
+              "key": "mgba_use_bios",
+              "label": "settings_mgba_use_bios_file",
+              "type": "enum",
+              "default": "ON",
+              "choices": [
+                {
+                  "label": "enabled",
+                  "value": "ON"
+                },
+                {
+                  "label": "disabled",
+                  "value": "OFF"
+                }
+              ]
+            },
+            {
+              "key": "mgba_skip_bios",
+              "label": "settings_mgba_skip_bios_intro",
+              "type": "enum",
+              "default": "OFF",
+              "choices": [
+                {
+                  "label": "disabled",
+                  "value": "OFF"
+                },
+                {
+                  "label": "enabled",
+                  "value": "ON"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "settings_mgba_tab_display",
+      "sections": [
+        {
+          "title": "settings_mgba_section_screen",
+          "options": [
+            {
+              "key": "display_mode",
+              "label": "settings_mgba_display_mode",
+              "type": "enum",
+              "default": "Integer",
+              "choices": [
+                {
+                  "label": "Integer",
+                  "value": "Integer"
+                },
+                {
+                  "label": "Display",
+                  "value": "Display"
+                }
+              ]
+            },
+            {
+              "key": "display_size",
+              "label": "settings_mgba_display_size",
+              "type": "enum",
+              "default": "Auto",
+              "choices": [
+                {
+                  "label": "Stretch",
+                  "value": "Stretch"
+                },
+                {
+                  "label": "4:3",
+                  "value": "4:3"
+                },
+                {
+                  "label": "16:9",
+                  "value": "16:9"
+                },
+                {
+                  "label": "Original",
+                  "value": "Original"
+                },
+                {
+                  "label": "1x",
+                  "value": "1x"
+                },
+                {
+                  "label": "2x",
+                  "value": "2x"
+                },
+                {
+                  "label": "Auto",
+                  "value": "Auto"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "settings_mgba_section_fast_forward",
+          "options": [
+            {
+              "key": "fast_forward_speed",
+              "label": "settings_mgba_fast_forward_speed",
+              "type": "enum",
+              "default": "200",
+              "choices": [
+                {
+                  "label": "150%",
+                  "value": "150"
+                },
+                {
+                  "label": "200%",
+                  "value": "200"
+                },
+                {
+                  "label": "300%",
+                  "value": "300"
+                },
+                {
+                  "label": "400%",
+                  "value": "400"
+                },
+                {
+                  "label": "Unlimited",
+                  "value": "unlimited"
+                }
+              ]
+            },
+            {
+              "key": "fast_forward_mode",
+              "label": "settings_mgba_fast_forward_mode",
+              "type": "enum",
+              "default": "hold",
+              "choices": [
+                {
+                  "label": "Hold",
+                  "value": "hold"
+                },
+                {
+                  "label": "Toggle",
+                  "value": "toggle"
+                }
+              ]
+            },
+            {
+              "key": "fast_forward_hotkey",
+              "label": "settings_mgba_fast_forward_hotkey",
+              "type": "enum",
+              "default": "ZR",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "X",
+                  "value": "X"
+                },
+                {
+                  "label": "Y",
+                  "value": "Y"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "ZL",
+                  "value": "ZL"
+                },
+                {
+                  "label": "ZR",
+                  "value": "ZR"
+                },
+                {
+                  "label": "Plus",
+                  "value": "Plus"
+                },
+                {
+                  "label": "Minus",
+                  "value": "Minus"
+                },
+                {
+                  "label": "Left stick",
+                  "value": "StickL"
+                },
+                {
+                  "label": "Right stick",
+                  "value": "StickR"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "settings_mgba_section_hud",
+          "options": [
+            {
+              "key": "fps_counter_position",
+              "label": "settings_mgba_fps_counter",
+              "type": "enum",
+              "default": "hidden",
+              "choices": [
+                {
+                  "label": "Hidden",
+                  "value": "hidden"
+                },
+                {
+                  "label": "Top left",
+                  "value": "top_left"
+                },
+                {
+                  "label": "Top right",
+                  "value": "top_right"
+                },
+                {
+                  "label": "Bottom left",
+                  "value": "bottom_left"
+                },
+                {
+                  "label": "Bottom right",
+                  "value": "bottom_right"
+                }
+              ]
+            },
+            {
+              "key": "rendered_ir_position",
+              "label": "settings_mgba_rendered_resolution",
+              "type": "enum",
+              "default": "hidden",
+              "choices": [
+                {
+                  "label": "Hidden",
+                  "value": "hidden"
+                },
+                {
+                  "label": "Top left",
+                  "value": "top_left"
+                },
+                {
+                  "label": "Top right",
+                  "value": "top_right"
+                },
+                {
+                  "label": "Bottom left",
+                  "value": "bottom_left"
+                },
+                {
+                  "label": "Bottom right",
+                  "value": "bottom_right"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "settings_mgba_tab_video",
+      "sections": [
+        {
+          "title": "settings_mgba_section_game_boy_options",
+          "options": [
+            {
+              "key": "mgba_gb_colors",
+              "label": "settings_mgba_default_palette",
+              "type": "enum",
+              "default": "Grayscale",
+              "choices": [
+                {
+                  "label": "Grayscale",
+                  "value": "Grayscale"
+                }
+              ]
+            },
+            {
+              "key": "mgba_gb_colors_preset",
+              "label": "settings_mgba_preset_palettes",
+              "type": "enum",
+              "default": "0",
+              "choices": [
+                {
+                  "label": "Default Game Boy preset",
+                  "value": "0"
+                },
+                {
+                  "label": "Game Boy Color presets only",
+                  "value": "1"
+                },
+                {
+                  "label": "Super Game Boy presets only",
+                  "value": "2"
+                },
+                {
+                  "label": "Any available presets",
+                  "value": "3"
+                }
+              ]
+            },
+            {
+              "key": "mgba_sgb_borders",
+              "label": "settings_mgba_sgb_borders",
+              "type": "enum",
+              "default": "ON",
+              "choices": [
+                {
+                  "label": "enabled",
+                  "value": "ON"
+                },
+                {
+                  "label": "disabled",
+                  "value": "OFF"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "settings_mgba_section_enhancements",
+          "options": [
+            {
+              "key": "mgba_color_correction",
+              "label": "settings_mgba_color_correction",
+              "type": "enum",
+              "default": "OFF",
+              "choices": [
+                {
+                  "label": "disabled",
+                  "value": "OFF"
+                },
+                {
+                  "label": "Game Boy Advance",
+                  "value": "GBA"
+                },
+                {
+                  "label": "Game Boy Color",
+                  "value": "GBC"
+                },
+                {
+                  "label": "Auto",
+                  "value": "Auto"
+                }
+              ]
+            },
+            {
+              "key": "mgba_interframe_blending",
+              "label": "settings_mgba_interframe_blending",
+              "type": "enum",
+              "default": "OFF",
+              "choices": [
+                {
+                  "label": "disabled",
+                  "value": "OFF"
+                },
+                {
+                  "label": "Simple",
+                  "value": "mix"
+                },
+                {
+                  "label": "Smart",
+                  "value": "mix_smart"
+                },
+                {
+                  "label": "LCD Ghosting (Accurate)",
+                  "value": "lcd_ghosting"
+                },
+                {
+                  "label": "LCD Ghosting (Fast)",
+                  "value": "lcd_ghosting_fast"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "settings_mgba_tab_audio",
+      "sections": [
+        {
+          "title": "settings_mgba_section_audio_filter",
+          "options": [
+            {
+              "key": "mgba_audio_low_pass_filter",
+              "label": "settings_mgba_low_pass_filter",
+              "type": "bool",
+              "default": "disabled"
+            },
+            {
+              "key": "mgba_audio_low_pass_range",
+              "label": "settings_mgba_filter_level",
+              "type": "enum",
+              "default": "60",
+              "choices": [
+                {
+                  "label": "5%",
+                  "value": "5"
+                },
+                {
+                  "label": "10%",
+                  "value": "10"
+                },
+                {
+                  "label": "15%",
+                  "value": "15"
+                },
+                {
+                  "label": "20%",
+                  "value": "20"
+                },
+                {
+                  "label": "25%",
+                  "value": "25"
+                },
+                {
+                  "label": "30%",
+                  "value": "30"
+                },
+                {
+                  "label": "35%",
+                  "value": "35"
+                },
+                {
+                  "label": "40%",
+                  "value": "40"
+                },
+                {
+                  "label": "45%",
+                  "value": "45"
+                },
+                {
+                  "label": "50%",
+                  "value": "50"
+                },
+                {
+                  "label": "55%",
+                  "value": "55"
+                },
+                {
+                  "label": "60%",
+                  "value": "60"
+                },
+                {
+                  "label": "65%",
+                  "value": "65"
+                },
+                {
+                  "label": "70%",
+                  "value": "70"
+                },
+                {
+                  "label": "75%",
+                  "value": "75"
+                },
+                {
+                  "label": "80%",
+                  "value": "80"
+                },
+                {
+                  "label": "85%",
+                  "value": "85"
+                },
+                {
+                  "label": "90%",
+                  "value": "90"
+                },
+                {
+                  "label": "95%",
+                  "value": "95"
+                }
+              ],
+              "depends_on": {
+                "key": "mgba_audio_low_pass_filter",
+                "value": "enabled"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "settings_mgba_tab_input",
+      "sections": [
+        {
+          "title": "settings_mgba_section_input",
+          "options": [
+            {
+              "key": "mgba_allow_opposing_directions",
+              "label": "settings_mgba_allow_opposing_dir",
+              "type": "enum",
+              "default": "no",
+              "choices": [
+                {
+                  "label": "disabled",
+                  "value": "no"
+                },
+                {
+                  "label": "enabled",
+                  "value": "yes"
+                }
+              ]
+            },
+            {
+              "key": "mgba_solar_sensor_level",
+              "label": "settings_mgba_solar_sensor",
+              "type": "enum",
+              "default": "0",
+              "choices": [
+                {
+                  "label": "Use device sensor if available",
+                  "value": "sensor"
+                },
+                {
+                  "label": "0",
+                  "value": "0"
+                },
+                {
+                  "label": "1",
+                  "value": "1"
+                },
+                {
+                  "label": "2",
+                  "value": "2"
+                },
+                {
+                  "label": "3",
+                  "value": "3"
+                },
+                {
+                  "label": "4",
+                  "value": "4"
+                },
+                {
+                  "label": "5",
+                  "value": "5"
+                },
+                {
+                  "label": "6",
+                  "value": "6"
+                },
+                {
+                  "label": "7",
+                  "value": "7"
+                },
+                {
+                  "label": "8",
+                  "value": "8"
+                },
+                {
+                  "label": "9",
+                  "value": "9"
+                },
+                {
+                  "label": "10",
+                  "value": "10"
+                }
+              ]
+            },
+            {
+              "key": "mgba_force_gbp",
+              "label": "settings_mgba_force_gb_player",
+              "type": "enum",
+              "default": "OFF",
+              "choices": [
+                {
+                  "label": "disabled",
+                  "value": "OFF"
+                },
+                {
+                  "label": "enabled",
+                  "value": "ON"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "settings_mgba_tab_perf",
+      "sections": [
+        {
+          "title": "settings_mgba_section_optimization",
+          "options": [
+            {
+              "key": "mgba_idle_optimization",
+              "label": "settings_mgba_idle_optimization",
+              "type": "enum",
+              "default": "Remove Known",
+              "choices": [
+                {
+                  "label": "Remove Known",
+                  "value": "Remove Known"
+                },
+                {
+                  "label": "Detect and Remove",
+                  "value": "Detect and Remove"
+                },
+                {
+                  "label": "Don't Remove",
+                  "value": "Don't Remove"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "title": "settings_mgba_section_frameskip",
+          "options": [
+            {
+              "key": "mgba_frameskip",
+              "label": "settings_mgba_method",
+              "type": "enum",
+              "default": "disabled",
+              "choices": [
+                {
+                  "label": "Disabled",
+                  "value": "disabled"
+                },
+                {
+                  "label": "Auto",
+                  "value": "auto"
+                },
+                {
+                  "label": "Auto (Threshold)",
+                  "value": "auto_threshold"
+                },
+                {
+                  "label": "Fixed Interval",
+                  "value": "fixed_interval"
+                }
+              ]
+            },
+            {
+              "key": "mgba_frameskip_threshold",
+              "label": "settings_mgba_frameskip_threshold",
+              "type": "enum",
+              "default": "33",
+              "choices": [
+                {
+                  "label": "15",
+                  "value": "15"
+                },
+                {
+                  "label": "18",
+                  "value": "18"
+                },
+                {
+                  "label": "21",
+                  "value": "21"
+                },
+                {
+                  "label": "24",
+                  "value": "24"
+                },
+                {
+                  "label": "27",
+                  "value": "27"
+                },
+                {
+                  "label": "30",
+                  "value": "30"
+                },
+                {
+                  "label": "33",
+                  "value": "33"
+                },
+                {
+                  "label": "36",
+                  "value": "36"
+                },
+                {
+                  "label": "39",
+                  "value": "39"
+                },
+                {
+                  "label": "42",
+                  "value": "42"
+                },
+                {
+                  "label": "45",
+                  "value": "45"
+                },
+                {
+                  "label": "48",
+                  "value": "48"
+                },
+                {
+                  "label": "51",
+                  "value": "51"
+                },
+                {
+                  "label": "54",
+                  "value": "54"
+                },
+                {
+                  "label": "57",
+                  "value": "57"
+                },
+                {
+                  "label": "60",
+                  "value": "60"
+                }
+              ],
+              "depends_on": {
+                "key": "mgba_frameskip",
+                "value": "auto_threshold"
+              }
+            },
+            {
+              "key": "mgba_frameskip_interval",
+              "label": "settings_mgba_frameskip_interval",
+              "type": "enum",
+              "default": "0",
+              "choices": [
+                {
+                  "label": "0",
+                  "value": "0"
+                },
+                {
+                  "label": "1",
+                  "value": "1"
+                },
+                {
+                  "label": "2",
+                  "value": "2"
+                },
+                {
+                  "label": "3",
+                  "value": "3"
+                },
+                {
+                  "label": "4",
+                  "value": "4"
+                },
+                {
+                  "label": "5",
+                  "value": "5"
+                },
+                {
+                  "label": "6",
+                  "value": "6"
+                },
+                {
+                  "label": "7",
+                  "value": "7"
+                },
+                {
+                  "label": "8",
+                  "value": "8"
+                },
+                {
+                  "label": "9",
+                  "value": "9"
+                },
+                {
+                  "label": "10",
+                  "value": "10"
+                }
+              ],
+              "depends_on": {
+                "key": "mgba_frameskip",
+                "value": "fixed_interval"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "settings_mgba_tab_controls",
+      "sections": [
+        {
+          "title": "settings_mgba_section_button_mapping",
+          "options": [
+            {
+              "key": "map_a",
+              "label": "settings_mgba_map_a",
+              "type": "enum",
+              "default": "A",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "X",
+                  "value": "X"
+                },
+                {
+                  "label": "Y",
+                  "value": "Y"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "ZL",
+                  "value": "ZL"
+                },
+                {
+                  "label": "ZR",
+                  "value": "ZR"
+                },
+                {
+                  "label": "Plus",
+                  "value": "Plus"
+                },
+                {
+                  "label": "Minus",
+                  "value": "Minus"
+                },
+                {
+                  "label": "Left stick",
+                  "value": "StickL"
+                },
+                {
+                  "label": "Right stick",
+                  "value": "StickR"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_b",
+              "label": "settings_mgba_map_b",
+              "type": "enum",
+              "default": "B",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "X",
+                  "value": "X"
+                },
+                {
+                  "label": "Y",
+                  "value": "Y"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "ZL",
+                  "value": "ZL"
+                },
+                {
+                  "label": "ZR",
+                  "value": "ZR"
+                },
+                {
+                  "label": "Plus",
+                  "value": "Plus"
+                },
+                {
+                  "label": "Minus",
+                  "value": "Minus"
+                },
+                {
+                  "label": "Left stick",
+                  "value": "StickL"
+                },
+                {
+                  "label": "Right stick",
+                  "value": "StickR"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_l",
+              "label": "settings_mgba_map_l",
+              "type": "enum",
+              "default": "L",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "X",
+                  "value": "X"
+                },
+                {
+                  "label": "Y",
+                  "value": "Y"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "ZL",
+                  "value": "ZL"
+                },
+                {
+                  "label": "ZR",
+                  "value": "ZR"
+                },
+                {
+                  "label": "Plus",
+                  "value": "Plus"
+                },
+                {
+                  "label": "Minus",
+                  "value": "Minus"
+                },
+                {
+                  "label": "Left stick",
+                  "value": "StickL"
+                },
+                {
+                  "label": "Right stick",
+                  "value": "StickR"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_r",
+              "label": "settings_mgba_map_r",
+              "type": "enum",
+              "default": "R",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "X",
+                  "value": "X"
+                },
+                {
+                  "label": "Y",
+                  "value": "Y"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "ZL",
+                  "value": "ZL"
+                },
+                {
+                  "label": "ZR",
+                  "value": "ZR"
+                },
+                {
+                  "label": "Plus",
+                  "value": "Plus"
+                },
+                {
+                  "label": "Minus",
+                  "value": "Minus"
+                },
+                {
+                  "label": "Left stick",
+                  "value": "StickL"
+                },
+                {
+                  "label": "Right stick",
+                  "value": "StickR"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_start",
+              "label": "settings_mgba_map_start",
+              "type": "enum",
+              "default": "Plus",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "X",
+                  "value": "X"
+                },
+                {
+                  "label": "Y",
+                  "value": "Y"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "ZL",
+                  "value": "ZL"
+                },
+                {
+                  "label": "ZR",
+                  "value": "ZR"
+                },
+                {
+                  "label": "Plus",
+                  "value": "Plus"
+                },
+                {
+                  "label": "Minus",
+                  "value": "Minus"
+                },
+                {
+                  "label": "Left stick",
+                  "value": "StickL"
+                },
+                {
+                  "label": "Right stick",
+                  "value": "StickR"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_select",
+              "label": "settings_mgba_map_select",
+              "type": "enum",
+              "default": "Minus",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "X",
+                  "value": "X"
+                },
+                {
+                  "label": "Y",
+                  "value": "Y"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "ZL",
+                  "value": "ZL"
+                },
+                {
+                  "label": "ZR",
+                  "value": "ZR"
+                },
+                {
+                  "label": "Plus",
+                  "value": "Plus"
+                },
+                {
+                  "label": "Minus",
+                  "value": "Minus"
+                },
+                {
+                  "label": "Left stick",
+                  "value": "StickL"
+                },
+                {
+                  "label": "Right stick",
+                  "value": "StickR"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_up",
+              "label": "settings_mgba_map_up",
+              "type": "enum",
+              "default": "Up",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "X",
+                  "value": "X"
+                },
+                {
+                  "label": "Y",
+                  "value": "Y"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "ZL",
+                  "value": "ZL"
+                },
+                {
+                  "label": "ZR",
+                  "value": "ZR"
+                },
+                {
+                  "label": "Plus",
+                  "value": "Plus"
+                },
+                {
+                  "label": "Minus",
+                  "value": "Minus"
+                },
+                {
+                  "label": "Left stick",
+                  "value": "StickL"
+                },
+                {
+                  "label": "Right stick",
+                  "value": "StickR"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_down",
+              "label": "settings_mgba_map_down",
+              "type": "enum",
+              "default": "Down",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "X",
+                  "value": "X"
+                },
+                {
+                  "label": "Y",
+                  "value": "Y"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "ZL",
+                  "value": "ZL"
+                },
+                {
+                  "label": "ZR",
+                  "value": "ZR"
+                },
+                {
+                  "label": "Plus",
+                  "value": "Plus"
+                },
+                {
+                  "label": "Minus",
+                  "value": "Minus"
+                },
+                {
+                  "label": "Left stick",
+                  "value": "StickL"
+                },
+                {
+                  "label": "Right stick",
+                  "value": "StickR"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_left",
+              "label": "settings_mgba_map_left",
+              "type": "enum",
+              "default": "Left",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "X",
+                  "value": "X"
+                },
+                {
+                  "label": "Y",
+                  "value": "Y"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "ZL",
+                  "value": "ZL"
+                },
+                {
+                  "label": "ZR",
+                  "value": "ZR"
+                },
+                {
+                  "label": "Plus",
+                  "value": "Plus"
+                },
+                {
+                  "label": "Minus",
+                  "value": "Minus"
+                },
+                {
+                  "label": "Left stick",
+                  "value": "StickL"
+                },
+                {
+                  "label": "Right stick",
+                  "value": "StickR"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_right",
+              "label": "settings_mgba_map_right",
+              "type": "enum",
+              "default": "Right",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "X",
+                  "value": "X"
+                },
+                {
+                  "label": "Y",
+                  "value": "Y"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "ZL",
+                  "value": "ZL"
+                },
+                {
+                  "label": "ZR",
+                  "value": "ZR"
+                },
+                {
+                  "label": "Plus",
+                  "value": "Plus"
+                },
+                {
+                  "label": "Minus",
+                  "value": "Minus"
+                },
+                {
+                  "label": "Left stick",
+                  "value": "StickL"
+                },
+                {
+                  "label": "Right stick",
+                  "value": "StickR"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "analog_dpad",
+              "label": "settings_mgba_analog_dpad",
+              "type": "bool",
+              "default": "enabled"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

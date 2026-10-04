@@ -3,7 +3,7 @@
 export DEVKITPRO=/opt/devkitpro
 export DEVKITA64=$DEVKITPRO/devkitA64
 
-echo "=== Building FCEUMM NRO with Tico Overlay ==="
+echo "=== Building mGBA NRO with Tico Overlay ==="
 
 # Include devkitA64 toolchain
 source $DEVKITPRO/devkitA64/base_tools 2>/dev/null || true
@@ -16,63 +16,26 @@ ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$ROOT_DIR/build_tico"
 TICO_DIR="$ROOT_DIR/tico"
 
-# Prefer a locally built Mesa tree when present so the NRO doesn't keep
-# embedding the older portlibs OpenGL stack.
-MESA_SOURCE_ROOT="${MESA_SOURCE_ROOT:-}"
-MESA_BUILD_ROOT=""
+# NACP version, and the version RetroAchievements sees in the User-Agent
+APP_VERSION="3.0.0"
 
-if [ -z "$MESA_SOURCE_ROOT" ]; then
-    for candidate in "$HOME/mesa-clean" "/mesa-clean"; do
-        if [ -d "$candidate" ]; then
-            MESA_SOURCE_ROOT="$candidate"
-            break
-        fi
-    done
+# Rendering is Vulkan on Mesa's NVK, linked statically (a loaderless
+# libvulkan.a), as in tico-snes9x and tico-gambatte. Point MESA_NVK_DIR at
+# builddir-switch of a mesa-switch tree; without one, the switch-dev image's
+# Horizon-native NVK in portlibs is used.
+MESA_NVK_DIR="${MESA_NVK_DIR:-/nvk-build}"
+NVK_ARCHIVE_SRC="$MESA_NVK_DIR/src/nouveau/vulkan/libvulkan.a"
+NVK_DEPS="-ldrm_nouveau -lexpat"
+if [ ! -f "$NVK_ARCHIVE_SRC" ]; then
+    NVK_ARCHIVE_SRC="$PORTLIBS/lib/libvulkan.a"
+    # no libdrm_nouveau in that build; see its vulkan.pc
+    NVK_DEPS="-lexpat"
 fi
-
-if [ -n "$MESA_SOURCE_ROOT" ]; then
-    if [ -f "$MESA_SOURCE_ROOT/build/src/egl/libEGL.a" ]; then
-        MESA_BUILD_ROOT="$MESA_SOURCE_ROOT/build"
-    elif [ -f "$MESA_SOURCE_ROOT/src/egl/libEGL.a" ]; then
-        MESA_BUILD_ROOT="$MESA_SOURCE_ROOT"
-    fi
+if [ ! -f "$NVK_ARCHIVE_SRC" ]; then
+    echo "Error: no NVK libvulkan.a (set MESA_NVK_DIR)"
+    exit 1
 fi
-
-USE_CUSTOM_MESA=0
-MESA_ARCHIVES=()
-
-if [ -n "$MESA_BUILD_ROOT" ]; then
-    REQUIRED_MESA_ARCHIVES=(
-        "$MESA_BUILD_ROOT/src/egl/libEGL.a"
-        "$MESA_BUILD_ROOT/src/mapi/shared-glapi/libglapi.a"
-        "$MESA_BUILD_ROOT/src/gallium/drivers/nouveau/libnouveau.a"
-        "$MESA_BUILD_ROOT/src/nouveau/codegen/libnouveau_codegen.a"
-        "$MESA_BUILD_ROOT/src/gallium/winsys/nouveau/switch/libnouveauwinsys.a"
-        "$MESA_BUILD_ROOT/libdrm_nouveau/lib/libdrm_nouveau.a"
-    )
-
-    MISSING_MESA_ARCHIVE=0
-    for archive in "${REQUIRED_MESA_ARCHIVES[@]}"; do
-        if [ ! -f "$archive" ]; then
-            MISSING_MESA_ARCHIVE=1
-            echo "Custom Mesa archive missing: $archive"
-        fi
-    done
-
-    if [ "$MISSING_MESA_ARCHIVE" -eq 0 ]; then
-        USE_CUSTOM_MESA=1
-        MESA_ARCHIVES=("${REQUIRED_MESA_ARCHIVES[@]}")
-        echo "Using custom Mesa build from: $MESA_BUILD_ROOT"
-    else
-        echo "Falling back to devkitPro portlibs Mesa."
-    fi
-else
-    if [ -n "$MESA_SOURCE_ROOT" ]; then
-        echo "Custom Mesa not found at $MESA_SOURCE_ROOT, using devkitPro portlibs Mesa."
-    else
-        echo "Custom Mesa not found, using devkitPro portlibs Mesa."
-    fi
-fi
+echo "NVK: $NVK_ARCHIVE_SRC"
 
 # ============================================================
 # Step 1: Build mgba as a static library (.a)
@@ -90,6 +53,28 @@ if [ ! -f "$STATIC_LIB" ]; then
 fi
 echo "Static library built: $STATIC_LIB"
 
+cd "$ROOT_DIR"
+
+# ============================================================
+# Step 1b: glslang (compiles slang shaders to SPIR-V at runtime)
+# ============================================================
+# Kept outside build_tico, which is wiped every run: glslang only needs
+# rebuilding when the submodule moves. Don't pass CMAKE_CXX_FLAGS here: it
+# replaces the toolchain's -mtp=soft, and glslang's thread_locals then read a
+# null thread pointer and crash on the first shader compile.
+GLSLANG_BUILD="$ROOT_DIR/build_glslang_nx"
+echo "--- Step 1b: Building glslang ---"
+cmake -S "$TICO_DIR/deps/glslang" -B "$GLSLANG_BUILD" -G Ninja \
+    -DCMAKE_TOOLCHAIN_FILE="$DEVKITPRO/cmake/Switch.cmake" -DCMAKE_BUILD_TYPE=Release \
+    -DENABLE_OPT=OFF -DENABLE_HLSL=OFF -DENABLE_GLSLANG_BINARIES=OFF -DGLSLANG_TESTS=OFF \
+    -DBUILD_EXTERNAL=OFF -DENABLE_SPVREMAPPER=OFF -DBUILD_SHARED_LIBS=OFF \
+    -DGLSLANG_ENABLE_INSTALL=OFF > /dev/null || exit 1
+cmake --build "$GLSLANG_BUILD" || exit 1
+GLSLANG_LIBS=(
+    "$GLSLANG_BUILD/glslang/libglslang.a"
+    "$GLSLANG_BUILD/glslang/libglslang-default-resource-limits.a"
+)
+
 # ============================================================
 # Step 2: Compile Tico overlay sources
 # ============================================================
@@ -103,15 +88,13 @@ CXX="${DEVKITA64}/bin/aarch64-none-elf-g++"
 
 COMMON_FLAGS="-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -O2 -g"
 COMMON_FLAGS="$COMMON_FLAGS -ffunction-sections -fdata-sections -DDISABLE_LOGGING -D__SWITCH__ -DHAVE_LIBNX"
-COMMON_FLAGS="$COMMON_FLAGS -DIMGUI_IMPL_OPENGL_LOADER_CUSTOM -include glad.h"
+COMMON_FLAGS="$COMMON_FLAGS -DLIBARCHIVE_STATIC -DVK_USE_PLATFORM_VI_NN -DTICO_APP_VERSION=\"$APP_VERSION\""
 COMMON_FLAGS="$COMMON_FLAGS -I$LIBNX/include -I$PORTLIBS/include -I$PORTLIBS/include/SDL2"
 COMMON_FLAGS="$COMMON_FLAGS -I$TICO_DIR -I$TICO_DIR/deps"
+COMMON_FLAGS="$COMMON_FLAGS -I$TICO_DIR/deps/vulkan-headers"
+COMMON_FLAGS="$COMMON_FLAGS -I$TICO_DIR/deps/glslang -I$TICO_DIR/deps/SPIRV-Reflect"
 COMMON_FLAGS="$COMMON_FLAGS -I$ROOT_DIR/src/platform/libretro"
 COMMON_FLAGS="$COMMON_FLAGS -I$ROOT_DIR/rcheevos/include -DRC_CLIENT_SUPPORTS_HASH"
-
-if [ "$USE_CUSTOM_MESA" -eq 1 ]; then
-    COMMON_FLAGS="$COMMON_FLAGS -I$MESA_SOURCE_ROOT/include -I$MESA_SOURCE_ROOT/libdrm_nouveau/include"
-fi
 
 CXXFLAGS="$COMMON_FLAGS -std=gnu++17 -fvisibility-inlines-hidden -fno-rtti -fno-exceptions"
 
@@ -119,15 +102,21 @@ CXXFLAGS="$COMMON_FLAGS -std=gnu++17 -fvisibility-inlines-hidden -fno-rtti -fno-
 TICO_SOURCES=(
     "$TICO_DIR/TicoMain.cpp"
     "$TICO_DIR/TicoCore.cpp"
-    "$TICO_DIR/TicoShaders.cpp"
-    "$TICO_DIR/TicoOverlay.cpp"
-    "$TICO_DIR/TicoTranslationManager.cpp"
+    "$TICO_DIR/UsbStorage.cpp"
+    "$TICO_DIR/TicoVulkan.cpp"
+    "$TICO_DIR/TicoShaderChain.cpp"
+    "$TICO_DIR/TicoSlang.cpp"
     "$TICO_DIR/TicoStubs.cpp"
+    "$TICO_DIR/overlay/imgui_overlay.cpp"
+    "$TICO_DIR/overlay/overlay_ui.cpp"
+    "$TICO_DIR/overlay/ra_alerts.cpp"
+    "$TICO_DIR/overlay/tico_config.cpp"
+    "$TICO_DIR/overlay/translation_manager.cpp"
 )
 
-# glad.c (OpenGL loader)
+# NVK's libvulkan.a exports the vk* entry points, so no loader (volk) here.
 TICO_C_SOURCES=(
-    "$TICO_DIR/glad.c"
+    "$TICO_DIR/deps/SPIRV-Reflect/spirv_reflect.c"
 )
 
 # ImGui sources
@@ -138,8 +127,7 @@ IMGUI_SOURCES=(
     "$IMGUI_DIR/imgui_tables.cpp"
     "$IMGUI_DIR/imgui_widgets.cpp"
     "$IMGUI_DIR/imgui_demo.cpp"
-    "$IMGUI_DIR/backends/imgui_impl_sdl2.cpp"
-    "$IMGUI_DIR/backends/imgui_impl_opengl3.cpp"
+    "$IMGUI_DIR/backends/imgui_impl_vulkan.cpp"
 )
 
 IMGUI_FLAGS="-I$IMGUI_DIR -I$IMGUI_DIR/backends"
@@ -162,7 +150,7 @@ for src in "${TICO_SOURCES[@]}"; do
     TICO_OBJS+=("$obj")
 done
 
-# Compile glad.c
+# Compile SPIRV-Reflect
 for src in "${TICO_C_SOURCES[@]}"; do
     obj="$BUILD_DIR/$(basename ${src%.c}.o)"
     echo "  CC  $src"
@@ -176,6 +164,9 @@ done
 
 # Compile rcheevos sources
 for src in "${RCHEEVOS_SOURCES[@]}"; do
+    # Since rcheevos has nested dirs, we flatten by using `basename` but to avoid collisions
+    # we can just use the hash of the file or relative path. For simplicity, rcheevos files 
+    # mostly have unique names. Let's prepend part of path to avoid collisions
     filename=$(basename "$src")
     dirprefix=$(basename $(dirname "$src"))
     obj="$BUILD_DIR/rc_${dirprefix}_${filename%.c}.o"
@@ -210,23 +201,32 @@ echo "--- Step 3: Linking mgba_tico.elf ---"
 ELF_OUTPUT="$BUILD_DIR/mgba_tico.elf"
 
 LINK_FLAGS="-specs=$LIBNX/switch.specs -march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE"
+# mGBA's util/formatting.c defines strtof_l, which newlib also has (as the
+# old mgba build did, keep the first definition)
 LINK_FLAGS="$LINK_FLAGS -Wl,--gc-sections -Wl,--allow-multiple-definition -Wl,-Map=$BUILD_DIR/mgba_tico.map"
 
-LINK_LIBS="-L$PORTLIBS/lib -L$LIBNX/lib"
+# tico/deps/usbhsfs first: libusbhsfs (FAT/exFAT) that also reads NTFS through usbntfs
+LINK_LIBS="-L$TICO_DIR/deps/usbhsfs/lib -L$PORTLIBS/lib -L$LIBNX/lib"
 LINK_LIBS="$LINK_LIBS -lSDL2_mixer -lmpg123 -lmodplug -lopusfile -lopus -lvorbisidec -logg -lSDL2"
 
-if [ "$USE_CUSTOM_MESA" -eq 0 ]; then
-    LINK_LIBS="$LINK_LIBS -lEGL -lglapi -ldrm_nouveau"
-fi
+# SDL2's EGL helpers are satisfied by stubs in TicoStubs.cpp: linking the
+# portlibs Mesa GL stack too would duplicate Mesa's util code inside NVK.
+LINK_LIBS="$LINK_LIBS $NVK_DEPS"
 
-LINK_LIBS="$LINK_LIBS -lcurl -lmbedtls -lmbedx509 -lmbedcrypto -lz -lzstd"
-LINK_LIBS="$LINK_LIBS -lnx -lm -lstdc++ -lpthread"
+# Mesa merges NVK's archives with the host ar, which leaves the Rust members
+# out of the symbol index; rebuild it with the devkitA64 archiver.
+NVK_ARCHIVE="$BUILD_DIR/libvulkan.a"
+cp "$NVK_ARCHIVE_SRC" "$NVK_ARCHIVE"
+"$DEVKITA64/bin/aarch64-none-elf-ranlib" "$NVK_ARCHIVE"
+
+LINK_LIBS="$LINK_LIBS -lcurl -lmbedtls -lmbedx509 -lmbedcrypto -larchive -lbz2 -llzma -llz4 -lz -lzstd"
+LINK_LIBS="$LINK_LIBS -lusbhsfs -lusbntfs -lnx -lm -lstdc++ -lpthread"
 
 $CXX $LINK_FLAGS \
     "${TICO_OBJS[@]}" \
     "$STATIC_LIB" \
-    "${MESA_ARCHIVES[@]}" \
-    $LINK_LIBS \
+    "${GLSLANG_LIBS[@]}" \
+    -Wl,--start-group "$NVK_ARCHIVE" $LINK_LIBS -Wl,--end-group \
     -o "$ELF_OUTPUT"
 
 if [ $? -ne 0 ]; then
@@ -247,7 +247,7 @@ NACPTOOL="$DEVKITPRO/tools/bin/nacptool"
 
 # Create NACP
 NACP_FILE="$BUILD_DIR/mgba.nacp"
-$NACPTOOL --create "tico mGBA" "ticoverse.com" "1.0.3" "$NACP_FILE"
+$NACPTOOL --create "tico mGBA" "ticoverse.com" "$APP_VERSION" "$NACP_FILE"
 
 # Convert ELF to NRO with romfs
 ROMFS_DIR="$BUILD_DIR/romfs"
@@ -257,6 +257,10 @@ mkdir -p "$ROMFS_DIR"
 [ -d "$TICO_DIR/fonts" ] && cp -r "$TICO_DIR/fonts" "$ROMFS_DIR/"
 [ -d "$TICO_DIR/lang" ] && cp -r "$TICO_DIR/lang" "$ROMFS_DIR/"
 [ -d "$TICO_DIR/assets" ] && cp -r "$TICO_DIR/assets" "$ROMFS_DIR/"
+[ -d "$TICO_DIR/shaders" ] && cp -r "$TICO_DIR/shaders" "$ROMFS_DIR/"
+# the overlay builds its settings menu from the module's own definition
+mkdir -p "$ROMFS_DIR/module"
+cp "$TICO_DIR/module/settings.json" "$ROMFS_DIR/module/"
 
 ELF2NRO_ARGS=(--nacp="$NACP_FILE")
 
@@ -267,12 +271,50 @@ fi
 
 $ELF2NRO "$ELF_OUTPUT" "$NRO_OUTPUT" "${ELF2NRO_ARGS[@]}"
 
-if [ -f "$NRO_OUTPUT" ]; then
-    echo "======================================"
-    echo "Build successful!"
-    echo "Output: $NRO_OUTPUT"
-    echo "======================================"
-else
+if [ ! -f "$NRO_OUTPUT" ]; then
     echo "Error: tico-mgba.nro not found"
     exit 1
 fi
+
+#---------------------------------------------------------------------------------
+# Module bundle
+#
+# A module is a directory, not a bare NRO: tico discovers it by reading
+# module.json, and everything the module owns -- its settings definition,
+# gamelist and console artwork -- travels with it. Shipping only the NRO would
+# mean a new system or a changed option tree still needs a tico release.
+#
+# The NRO sits beside module.json, so an installed bundle is self-contained and
+# extracts straight into sdmc:/tico/modules/<id>/.
+#---------------------------------------------------------------------------------
+MODULE_SRC="$TICO_DIR/module"
+MODULE_ID=$(sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$MODULE_SRC/module.json" | head -1)
+MODULE_OUT="$BUILD_DIR/module/$MODULE_ID"
+
+rm -rf "$BUILD_DIR/module"
+mkdir -p "$MODULE_OUT"
+# The zip is the complete module. romfs is per-NRO, so tico cannot read anything
+# out of this core's romfs -- everything tico needs about the module has to reach
+# the SD card, and the bundle is what carries it. Tico's own romfs holds a copy of
+# the official modules only as an offline baseline for a fresh install.
+cp -r "$MODULE_SRC/." "$MODULE_OUT/"
+cp "$NRO_OUTPUT" "$MODULE_OUT/"
+# tico merges these into its own strings to label the settings screen
+cp -R "$TICO_DIR/lang" "$MODULE_OUT/"
+
+# Tico prefers .json.gz when resolving a gamelist.
+if [ -d "$MODULE_OUT/gamelists" ]; then
+    gzip -f -9 "$MODULE_OUT"/gamelists/*.json 2>/dev/null || true
+fi
+
+BUNDLE="$BUILD_DIR/tico-$MODULE_ID-module.zip"
+rm -f "$BUNDLE"
+( cd "$BUILD_DIR/module" && zip -qr "$BUNDLE" "$MODULE_ID" )
+
+echo "======================================"
+echo "Build successful!"
+echo "  NRO:    $NRO_OUTPUT"
+echo "  Module: $BUNDLE"
+echo "          extracts to sdmc:/tico/modules/$MODULE_ID/"
+echo "======================================"
+find "$MODULE_OUT" -type f | sed "s|$BUILD_DIR/module/|    |"

@@ -1,0 +1,78 @@
+/// @file TicoShaderChain.h
+/// @brief Runs a RetroArch slang preset on the core's software frame.
+///
+/// The core's frame is uploaded into a source image, every pass of the preset
+/// renders into its own target, and the last pass renders at the size the
+/// game occupies on screen. That image is handed to ImGui, so the overlay
+/// draws the processed game exactly like it drew the raw frame before.
+/// Without a preset a built-in nearest-neighbour pass does the scaling.
+#pragma once
+
+#include "TicoSlang.h"
+#include "TicoVulkan.h"
+#include "libretro.h"
+
+#include <memory>
+#include <string>
+#include <vector>
+
+class TicoShaderChain
+{
+public:
+    TicoShaderChain();
+    ~TicoShaderChain();
+
+    bool Init();
+    void Shutdown();
+
+    /// Load a .slangp. An empty path selects the built-in pass. On failure the
+    /// previous preset stays active and `error` says why.
+    bool LoadPreset(const std::string &path, std::string &error);
+    const std::string &PresetPath() const { return m_presetPath; }
+
+    /// Parameters of the active preset, with their current values.
+    const std::vector<TicoSlang::Parameter> &Parameters() const;
+    void SetParameter(const std::string &id, float value);
+    void ResetParameters();
+
+    /// Copy a new core frame. Called from the libretro video callback.
+    void SetSourceFrame(const void *data, unsigned width, unsigned height, size_t pitch,
+                        retro_pixel_format format);
+
+    /// Record the passes into `cmd` and return the final image for ImGui, or
+    /// ImTextureID_Invalid if there is nothing to show yet.
+    ImTextureID Process(VkCommandBuffer cmd, uint32_t viewportWidth, uint32_t viewportHeight,
+                        float coreAspect, double coreFps);
+
+    /// Debug: write the last final image to a PNG. Waits for the GPU.
+    bool SaveOutputPNG(const std::string &path);
+
+    struct Runtime; // defined in the .cpp
+
+private:
+    bool UploadSource(VkCommandBuffer cmd);
+
+    std::unique_ptr<Runtime> m_runtime;
+    std::string m_presetPath;
+
+    // Latest core frame, tightly packed.
+    std::vector<uint8_t> m_frame;
+    unsigned m_frameWidth = 0;
+    unsigned m_frameHeight = 0;
+    retro_pixel_format m_frameFormat = RETRO_PIXEL_FORMAT_RGB565;
+    bool m_frameDirty = false;
+    uint32_t m_frameCount = 0;
+
+    TicoVulkan::Buffer m_staging[TicoVulkan::kFramesInFlight];
+    TicoVulkan::Image m_source;
+    retro_pixel_format m_sourceFormat = RETRO_PIXEL_FORMAT_UNKNOWN;
+    std::vector<TicoVulkan::Image> m_history; // [0] = previous frame
+
+    TicoVulkan::Image m_dummy; // bound for textures a preset names but lacks
+    TicoVulkan::Buffer m_quadBuffer;
+    VkSampler m_samplers[2][2][4] = {}; // [linear][mipmap][wrap]
+
+    ImTextureID m_outputId = ImTextureID_Invalid;
+
+    friend struct Runtime;
+};
