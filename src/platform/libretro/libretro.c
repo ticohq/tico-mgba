@@ -24,6 +24,7 @@
 #include <mgba/gba/core.h>
 #include <mgba/gba/interface.h>
 #include <mgba/internal/gba/gba.h>
+#include <mgba/internal/gba/cheats.h> // tico: struct GBACheatSet/GBACheatHook for hook sharing
 #endif
 #include <mgba-util/memory.h>
 #include <mgba-util/vfs.h>
@@ -2207,6 +2208,101 @@ void retro_cheat_set(unsigned index, bool enabled, const char* code) {
 	if (cheatSet->refresh) {
 		cheatSet->refresh(cheatSet, device);
 	}
+}
+
+// tico: properly tear down ALL cheat sets, restoring any ROM byte a cheat's
+// hook had patched with a breakpoint opcode, before the caller re-applies a
+// fresh batch. retro_cheat_reset()/mCheatDeviceClear() (upstream) frees each
+// set's bookkeeping directly WITHOUT calling set->remove() first, so a hook's
+// patched ROM byte is never restored -- it stays a leftover breakpoint. The
+// NEXT time a hook is installed at that same address, GBASetBreakpoint reads
+// that leftover breakpoint as the "original opcode" to preserve, and forever
+// after the hook fires it re-injects a breakpoint instead of the real
+// instruction, hanging the core. tico calls this instead of retro_cheat_reset()
+// because it rebuilds the whole cheat set on every single toggle.
+void tico_cheat_reset(void) {
+	if (!core) {
+		return;
+	}
+	struct mCheatDevice* device = core->cheatDevice(core);
+	if (!device) {
+		return;
+	}
+	while (mCheatSetsSize(&device->cheats) > 0) {
+		struct mCheatSet* set = *mCheatSetsGetPointer(&device->cheats, 0);
+		mCheatRemoveSet(device, set); // calls set->remove() -> restores any patched ROM byte
+		mCheatSetDeinit(set);         // frees the set (and its hook's refcount) safely after
+	}
+}
+
+// tico: add each named cheat as its OWN cheat set, so every cheat gets its own
+// independent autodetect/codec and hook state (like desktop mGBA), instead of
+// piling all codes into a single shared set as retro_cheat_set does. That single
+// shared set is what lets one mis-decoded cheat corrupt the others and hang the
+// core. Call tico_cheat_reset() first to clear, then this once per cheat.
+// `type` is a GBACheatType (0 = autodetect). Returns -1 if any line failed to
+// parse, else 0.
+int tico_add_cheat_set(const char* name, const char* const* lines, int nLines, bool enabled, int type) {
+	if (!core) {
+		return -1;
+	}
+	struct mCheatDevice* device = core->cheatDevice(core);
+	if (!device) {
+		return -1;
+	}
+	struct mCheatSet* set = device->createSet(device, name);
+	if (!set) {
+		return -1;
+	}
+	mCheatAddSet(device, set);
+	int result = 0;
+	int i;
+	for (i = 0; i < nLines; ++i) {
+		if (!lines[i] || !lines[i][0]) {
+			continue;
+		}
+		if (!mCheatAddLine(set, lines[i], type)) {
+			result = -1;
+		}
+	}
+	set->enabled = enabled;
+
+#ifdef M_CORE_GBA
+	// tico: if this cheat installs a hook at an address ALREADY hooked by another
+	// cheat (e.g. two Pokemon cheats that share a "master code"), share the existing
+	// hook object instead of patching a second breakpoint at the same address. Two
+	// independent hooks there make the 2nd one save the 1st's BKPT as its "original"
+	// opcode, so when the hook fires it re-executes a breakpoint forever -> hang.
+	// Desktop mGBA avoids this by sharing the hook via copyProperties; we do the same
+	// dedup here while keeping each cheat's codec/autodetect state independent.
+	if (core->platform(core) == mPLATFORM_GBA) {
+		struct GBACheatSet* gset = (struct GBACheatSet*) set;
+		if (gset->hook) {
+			size_t nSets = mCheatSetsSize(&device->cheats);
+			size_t j;
+			for (j = 0; j < nSets; ++j) {
+				struct GBACheatSet* other = (struct GBACheatSet*) *mCheatSetsGetPointer(&device->cheats, j);
+				if (other != gset && other->hook && other->hook != gset->hook
+				    && other->hook->address == gset->hook->address) {
+					// The freshly-created hook hasn't been installed yet (refresh
+					// runs below), so just drop it and adopt the shared one.
+					--gset->hook->refs;
+					if (gset->hook->refs == 0) {
+						free(gset->hook);
+					}
+					gset->hook = other->hook;
+					++gset->hook->refs;
+					break;
+				}
+			}
+		}
+	}
+#endif
+
+	if (set->refresh) {
+		set->refresh(set, device);
+	}
+	return result;
 }
 
 unsigned retro_get_region(void) {
