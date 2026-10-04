@@ -53,6 +53,15 @@ public:
     /// SHADER_READ_ONLY_OPTIMAL, sized to the viewport; null before the first.
     const TicoVulkan::Image *OutputImage() const;
 
+    /// Turns the picture by `quarterTurns` x 90 degrees counter-clockwise in
+    /// the last pass, as libretro's SET_ROTATION asks (vertical arcade games);
+    /// the earlier passes still see the game upright.
+    void SetRotation(int quarterTurns) { m_rotation = ((quarterTurns % 4) + 4) % 4; }
+
+    /// Bilinear filtering for passes that do not set filter_linear (the
+    /// built-in one included); nearest otherwise, the default.
+    void SetSmooth(bool smooth) { m_smooth = smooth; }
+
     /// Debug: write the last final image to a PNG. Waits for the GPU.
     bool SaveOutputPNG(const std::string &path);
 
@@ -70,6 +79,8 @@ private:
     unsigned m_frameHeight = 0;
     retro_pixel_format m_frameFormat = RETRO_PIXEL_FORMAT_RGB565;
     bool m_frameDirty = false;
+    int m_rotation = 0;
+    bool m_smooth = false;
     VkImage m_extImage = VK_NULL_HANDLE; // SetSourceImage's frame, until copied
     VkImageLayout m_extLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     uint32_t m_frameCount = 0;

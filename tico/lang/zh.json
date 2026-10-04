@@ -172,5 +172,19 @@
     "emulator_auto_loaded": "已载入自动存档",
     "emulator_continue": "继续",
     "emulator_start_over": "重新开始",
-    "emulator_resume_title": "从上次离开的地方继续吗？"
+    "emulator_resume_title": "从上次离开的地方继续吗？",
+    "emulator_this_game": "此游戏",
+    "emulator_game_only_on": "更改仅适用于此游戏",
+    "emulator_game_only_off": "更改适用于所有游戏",
+    "emulator_game_only_note": "仅为此游戏保存中",
+    "emulator_game_settings_save": "为此游戏保存当前设置",
+    "emulator_game_settings_delete": "删除此游戏的设置",
+    "emulator_game_settings_delete_confirm": "删除此游戏的设置？它将重新使用通用设置。",
+    "emulator_game_settings_saved": "已为此游戏保存设置",
+    "emulator_game_settings_deleted": "此游戏已恢复使用通用设置",
+    "emulator_delete": "删除",
+    "emulator_players": "玩家",
+    "emulator_player": "玩家 %d",
+    "emulator_not_connected": "未连接",
+    "emulator_change_controllers": "更改手柄顺序"
 }

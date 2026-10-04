@@ -338,6 +338,12 @@ public:
     }
 
     std::string GetConfigValue(std::string_view key, std::string_view default_value) const {
+        if (UsesGameLayer(key)) {
+            const auto game_it = game_root.find(std::string(key));
+            if (game_it != game_root.end() && !game_it->is_object() && !game_it->is_array()) {
+                return JsonScalarToString(*game_it);
+            }
+        }
         const auto it = options.find(key);
         if (it != options.end()) {
             return it->second;
@@ -346,11 +352,21 @@ public:
     }
 
     void SetConfigValue(const std::string& key, const std::string& value) {
+        if (UsesGameLayer(key)) {
+            game_root[key] = value;
+            return;
+        }
         options[key] = value;
         changed[key] = value;
     }
 
     std::string GetConfigJson(std::string_view key) const {
+        if (UsesGameLayer(key)) {
+            const auto game_it = game_root.find(std::string(key));
+            if (game_it != game_root.end() && (game_it->is_object() || game_it->is_array())) {
+                return game_it->dump();
+            }
+        }
         const auto changed_it = changed_json.find(key);
         if (changed_it != changed_json.end()) {
             return changed_it->second.dump();
@@ -362,9 +378,14 @@ public:
 
     void SetConfigJson(const std::string& key, const std::string& json_text) {
         nlohmann::json value = nlohmann::json::parse(json_text, nullptr, false);
-        if (!value.is_discarded()) {
-            changed_json[key] = std::move(value);
+        if (value.is_discarded()) {
+            return;
         }
+        if (UsesGameLayer(key)) {
+            game_root[key] = std::move(value);
+            return;
+        }
+        changed_json[key] = std::move(value);
     }
 
     // Writes back what was read, with this session's changes as strings, the
@@ -396,8 +417,121 @@ public:
             return false;
         }
         loaded_path = target;
-        return true;
+        return SaveGameFile();
     }
+
+    // --- Per-game layer: sdmc:/tico/config/games/<core>/<game>.jsonc holds
+    // what one game sets differently. While it exists it is read first and
+    // takes every change (but the library's folders, which stay the core's).
+
+    void SetGame(const std::string& rom_path) {
+        game_file.clear();
+        game_root = nlohmann::json::object();
+        game_active = false;
+        std::string name = rom_path;
+        if (name.size() >= 2 && name.front() == '"' && name.back() == '"') {
+            name = name.substr(1, name.size() - 2);
+        }
+        const std::size_t slash = name.find_last_of("/\\");
+        if (slash != std::string::npos) {
+            name = name.substr(slash + 1);
+        }
+        const std::size_t dot = name.find_last_of('.');
+        if (dot != std::string::npos) {
+            name = name.substr(0, dot);
+        }
+        if (name.empty()) {
+            return;
+        }
+        game_file = GameDir() + name + ".jsonc";
+        std::string content;
+        if (ReadWholeFile(game_file.c_str(), content)) {
+            nlohmann::json root = nlohmann::json::parse(StripJsonComments(content), nullptr, false);
+            if (!root.is_discarded() && root.is_object()) {
+                game_root = std::move(root);
+                game_active = true;
+                LOG_INFO("OVERLAY", "per-game settings from %s", game_file.c_str());
+            }
+        }
+    }
+
+    bool HasGame() const {
+        return !game_file.empty();
+    }
+
+    bool GameActive() const {
+        return game_active;
+    }
+
+    // The game gets its own file with every current value (the core's file,
+    // this session's changes, settings.json's defaults for the rest); from
+    // then on changes go to it.
+    void SaveGameSettings() {
+        if (game_file.empty()) {
+            return;
+        }
+        nlohmann::json root = original.is_object() ? original : nlohmann::json::object();
+        for (const auto& [key, value] : changed) {
+            root[key] = value;
+        }
+        for (const auto& [key, value] : changed_json) {
+            root[key] = value;
+        }
+        for (const OptionCategory& category : GetCatalogue().categories) {
+            for (std::size_t i = 0; i < category.option_count; ++i) {
+                const OptionDef& option = category.options[i];
+                if (!root.contains(option.key)) {
+                    root[option.key] = GetConfigValue(option.key, option.default_value);
+                }
+            }
+        }
+        root.erase("tico_rom_folders");
+        game_root = std::move(root);
+        game_active = true;
+        SaveGameFile();
+    }
+
+    // Back to the core's settings: the game's file is removed.
+    void DeleteGameSettings() {
+        if (game_file.empty()) {
+            return;
+        }
+        game_active = false;
+        game_root = nlohmann::json::object();
+        std::remove(game_file.c_str());
+    }
+
+private:
+    bool UsesGameLayer(std::string_view key) const {
+        return game_active && key != "tico_rom_folders";
+    }
+
+    // sdmc:/tico/config/games/<core>/, the core named as its own config file is
+    static std::string GameDir() {
+        std::string core = kDefaultWritableConfigPath;
+        core = core.substr(core.find_last_of('/') + 1);
+        core = core.substr(0, core.find_last_of('.'));
+        return "sdmc:/tico/config/games/" + core + "/";
+    }
+
+    bool SaveGameFile() {
+        if (!game_active || game_file.empty()) {
+            return true;
+        }
+        mkdir("sdmc:/tico/config/games", 0777);
+        mkdir(GameDir().c_str(), 0777);
+        const std::string serialized = game_root.dump(2);
+        std::FILE* fp = std::fopen(game_file.c_str(), "wb");
+        if (!fp) {
+            LOG_WARN("OVERLAY", "failed to open per-game config for write: %s", game_file.c_str());
+            return false;
+        }
+        const bool ok = std::fwrite(serialized.data(), 1, serialized.size(), fp) == serialized.size();
+        std::fclose(fp);
+        return ok;
+    }
+
+public:
 
     std::string GetOptionValue(const OptionDef& option) const {
         return GetConfigValue(option.key, option.default_value);
@@ -429,6 +563,9 @@ private:
     std::map<std::string, nlohmann::json, std::less<>> changed_json;
     nlohmann::json original = nlohmann::json::object();
     std::string loaded_path;
+    std::string game_file;
+    nlohmann::json game_root = nlohmann::json::object();
+    bool game_active = false;
 };
 
 Manager& GetManager() {
@@ -512,6 +649,26 @@ std::string GetConfigJson(std::string_view key) {
 
 void SetConfigJson(const std::string& key, const std::string& json_text) {
     GetManager().SetConfigJson(key, json_text);
+}
+
+void SetGame(const std::string& rom_path) {
+    GetManager().SetGame(rom_path);
+}
+
+bool HasGame() {
+    return GetManager().HasGame();
+}
+
+bool GameSettingsActive() {
+    return GetManager().GameActive();
+}
+
+void SaveGameSettings() {
+    GetManager().SaveGameSettings();
+}
+
+void DeleteGameSettings() {
+    GetManager().DeleteGameSettings();
 }
 
 void ApplyToCore(const CoreOptionFn& apply) {

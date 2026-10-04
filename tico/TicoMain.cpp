@@ -1559,6 +1559,8 @@ static void StartGame(const std::string &slug, const std::string &romArg, const 
     TicoConfig::MakeDirs(TicoConfig::StatesPath());
     TicoConfig::MakeDirs(TicoConfig::SystemPath());
 
+    // this game's own settings (Settings > This Game), if it has them, over the core's
+    OverlayConfig::SetGame(romPath);
     g_core = std::make_unique<TicoCore>();
     g_core->EnsureConfigLoaded();
     ApplySettingsToCore();
@@ -1603,6 +1605,7 @@ static void ShowLibrary()
     }
     StopFastForward();
     OverlayUI::SetGameTitle("mGBA");
+    OverlayConfig::SetGame(std::string()); // the library has no game settings
     OverlayUI::SetLibraryMode(true);
     if (g_menuOpen)
         CloseMenu();

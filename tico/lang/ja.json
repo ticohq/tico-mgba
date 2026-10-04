@@ -175,5 +175,19 @@
     "emulator_auto_loaded": "オートセーブをロードしました",
     "emulator_continue": "続きから",
     "emulator_start_over": "最初から",
-    "emulator_resume_title": "前回の続きから再開しますか？"
+    "emulator_resume_title": "前回の続きから再開しますか？",
+    "emulator_this_game": "このゲーム",
+    "emulator_game_only_on": "変更はこのゲームだけに適用されます",
+    "emulator_game_only_off": "変更はすべてのゲームに適用されます",
+    "emulator_game_only_note": "このゲームだけに保存中",
+    "emulator_game_settings_save": "現在の設定をこのゲーム用に保存",
+    "emulator_game_settings_delete": "このゲームの設定を削除",
+    "emulator_game_settings_delete_confirm": "このゲームの設定を削除しますか？共通の設定に戻ります。",
+    "emulator_game_settings_saved": "このゲーム用に設定を保存しました",
+    "emulator_game_settings_deleted": "このゲームは共通の設定に戻りました",
+    "emulator_delete": "削除",
+    "emulator_players": "プレイヤー",
+    "emulator_player": "プレイヤー %d",
+    "emulator_not_connected": "未接続",
+    "emulator_change_controllers": "コントローラーの順番を変える"
 }

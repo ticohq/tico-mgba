@@ -27,6 +27,10 @@ enum class Action {
     AddCheat,
     // the disc to insert is given by ConsumeDiscIndex
     SwapDisc,
+    // a ShowNotice choice was made; ConsumeNoticeChoice says which
+    NoticeChoice,
+    // Settings > Players: open the system's controller screen
+    ControllerOrder,
     SaveStateSlot1,
     SaveStateSlot2,
     SaveStateSlot3,
@@ -67,6 +71,23 @@ void SetHardcoreMode(bool hardcore);
 // made) or start over. Call right after showing the overlay; Continue returns
 // the load action for kAutoStateSlot, Start Over (or B) Action::Resume.
 void ShowResumePrompt();
+
+// A message that has to be answered before anything else (e.g. a missing
+// BIOS): `message` as the title and one row per choice. Choosing returns
+// Action::NoticeChoice; B picks the last choice.
+void ShowNotice(std::string message, std::vector<std::string> choices);
+int ConsumeNoticeChoice();
+
+// Settings > Players: what each port has and a way to change the order.
+struct PlayerCallbacks {
+    // one entry per port, empty when nothing is connected to it
+    std::function<std::vector<std::string>()> ports;
+    // a line under the ports (e.g. that arcade boards read two), or empty
+    std::function<std::string()> note;
+};
+// Pass a default-constructed struct to remove the category. Its last row
+// returns Action::ControllerOrder.
+void SetPlayerCallbacks(PlayerCallbacks callbacks);
 void SetNickname(std::string nickname);
 void SetAvatarTextureId(unsigned long long texture_id);
 // The selection border strip for the tint picked in tico (0 when there is

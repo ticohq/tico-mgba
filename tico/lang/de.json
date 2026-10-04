@@ -177,5 +177,19 @@
     "emulator_auto_loaded": "Automatische Sicherung geladen",
     "emulator_continue": "Fortsetzen",
     "emulator_start_over": "Neu beginnen",
-    "emulator_resume_title": "Dort weitermachen, wo du aufgehört hast?"
+    "emulator_resume_title": "Dort weitermachen, wo du aufgehört hast?",
+    "emulator_this_game": "Dieses Spiel",
+    "emulator_game_only_on": "Änderungen gelten nur für dieses Spiel",
+    "emulator_game_only_off": "Änderungen gelten für alle Spiele",
+    "emulator_game_only_note": "Wird nur für dieses Spiel gespeichert",
+    "emulator_game_settings_save": "Aktuelle Einstellungen für dieses Spiel speichern",
+    "emulator_game_settings_delete": "Einstellungen dieses Spiels löschen",
+    "emulator_game_settings_delete_confirm": "Einstellungen dieses Spiels löschen? Es nutzt dann wieder die gemeinsamen Einstellungen.",
+    "emulator_game_settings_saved": "Einstellungen für dieses Spiel gespeichert",
+    "emulator_game_settings_deleted": "Dieses Spiel nutzt wieder die gemeinsamen Einstellungen",
+    "emulator_delete": "Löschen",
+    "emulator_players": "Spieler",
+    "emulator_player": "Spieler %d",
+    "emulator_not_connected": "Nicht verbunden",
+    "emulator_change_controllers": "Controller-Reihenfolge ändern"
 }
