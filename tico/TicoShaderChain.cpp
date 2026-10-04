@@ -10,7 +10,10 @@
 #include "TicoShaderChain.h"
 #include "TicoLogger.h"
 #include "deps/stb/stb_image.h"
+// a frontend whose core already builds stb_image_write defines this
+#ifndef TICO_STB_IMAGE_WRITE_EXTERNAL
 #define STB_IMAGE_WRITE_IMPLEMENTATION
+#endif
 #include "deps/stb/stb_image_write.h"
 
 #include <algorithm>
@@ -784,6 +787,26 @@ void TicoShaderChain::SetSourceFrame(const void *data, unsigned width, unsigned 
     m_frameCount++;
 }
 
+void TicoShaderChain::SetSourceImage(VkImage image, VkImageLayout layout, unsigned width, unsigned height)
+{
+    if (!image || !width || !height)
+        return;
+    m_extImage = image;
+    m_extLayout = layout;
+    m_frameWidth = width;
+    m_frameHeight = height;
+    m_frameFormat = RETRO_PIXEL_FORMAT_XRGB8888; // the blit converts to it
+    m_frameDirty = true;
+    m_frameCount++;
+}
+
+const TicoVulkan::Image *TicoShaderChain::OutputImage() const
+{
+    if (!m_runtime || m_runtime->passes.empty() || !m_runtime->passes.back().output.img.image)
+        return nullptr;
+    return &m_runtime->passes.back().output.img;
+}
+
 bool TicoShaderChain::UploadSource(VkCommandBuffer cmd)
 {
     if (!m_frameDirty)
@@ -847,6 +870,39 @@ bool TicoShaderChain::UploadSource(VkCommandBuffer cmd)
                                     VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
                                     VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
         m_source.layout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    }
+
+    if (m_extImage)
+    {
+        // a GPU frame: blit it in, leaving the core's image as it was
+        const VkImage ext = m_extImage;
+        m_extImage = VK_NULL_HANDLE;
+        TicoVulkan::TransitionImage(cmd, ext, 1, m_extLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                    VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                                    VK_ACCESS_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT,
+                                    VK_PIPELINE_STAGE_TRANSFER_BIT);
+        TicoVulkan::TransitionImage(cmd, m_source.image, 1, m_source.layout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                    VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_TRANSFER_READ_BIT,
+                                    VK_ACCESS_TRANSFER_WRITE_BIT,
+                                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                    VK_PIPELINE_STAGE_TRANSFER_BIT);
+        VkImageBlit blit = {};
+        blit.srcSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
+        blit.dstSubresource = blit.srcSubresource;
+        blit.srcOffsets[1] = {(int32_t)m_frameWidth, (int32_t)m_frameHeight, 1};
+        blit.dstOffsets[1] = blit.srcOffsets[1];
+        vkCmdBlitImage(cmd, ext, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_source.image,
+                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit, VK_FILTER_NEAREST);
+        TicoVulkan::TransitionImage(cmd, ext, 1, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_extLayout,
+                                    VK_ACCESS_TRANSFER_READ_BIT,
+                                    VK_ACCESS_MEMORY_READ_BIT | VK_ACCESS_MEMORY_WRITE_BIT,
+                                    VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+        TicoVulkan::TransitionImage(cmd, m_source.image, 1, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT,
+                                    VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                                    VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT);
+        m_source.layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        return true;
     }
 
     Buffer &staging = m_staging[TicoVulkan::FrameIndex()];
