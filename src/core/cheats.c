@@ -639,6 +639,12 @@ void mCheatAutosave(struct mCheatDevice* device) {
 }
 #endif
 
+// tico: upper bound on a single cheat's repeat/fill count. Mis-decoded cheats
+// (e.g. a code fed to the wrong codec) can yield garbage repeat counts up to
+// ~16M, which would loop the interpreter for the whole frame and hang the app.
+// Generous enough that legitimate fill cheats are unaffected.
+#define TICO_MAX_CHEAT_OPERATIONS 0x100000
+
 void mCheatRefresh(struct mCheatDevice* device, struct mCheatSet* cheats) {
 	if (cheats->enabled) {
 		_patchROM(device, cheats);
@@ -660,6 +666,11 @@ void mCheatRefresh(struct mCheatDevice* device, struct mCheatSet* cheats) {
 		int32_t value = 0;
 		int32_t operand = cheat->operand;
 		uint32_t operationsRemaining = cheat->repeat;
+		// tico: clamp pathological/garbage repeat counts so a mis-decoded cheat
+		// cannot loop for millions of iterations and hang the frame.
+		if (operationsRemaining > TICO_MAX_CHEAT_OPERATIONS) {
+			operationsRemaining = TICO_MAX_CHEAT_OPERATIONS;
+		}
 		uint32_t address = cheat->address;
 		bool performAssignment = false;
 		bool condition = true;
@@ -767,7 +778,13 @@ void mCheatRefresh(struct mCheatDevice* device, struct mCheatSet* cheats) {
 
 
 		if (elseLoc && i == elseLoc) {
-			i = endLoc;
+			// tico: only allow forward jumps. A backward or zero endLoc (from a
+			// mis-decoded block/else code, where negativeRepeat underflowed)
+			// would send the interpreter back and loop forever, hanging the app.
+			if (endLoc > i) {
+				i = endLoc;
+			}
+			elseLoc = 0;
 			endLoc = 0;
 		}
 		if (conditionRemaining > 0 && !condition) {
