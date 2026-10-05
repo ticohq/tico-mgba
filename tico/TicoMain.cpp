@@ -905,6 +905,7 @@ static void OpenMenu()
         OverlayUI::ShowToast(TrFormat("emulator_hardcore_pause_wait", waitSeconds));
         return;
     }
+    TicoCore::StopRumble(); // the game is paused
     g_menuOpen = true;
     g_navHeldPrev = 0;
     g_navRepeatFrames = 0;
@@ -1032,6 +1033,7 @@ static void RunMenuAction()
             AutoSaveState();
             TicoVulkan::WaitIdle();
             g_core.reset();
+            TicoCore::StopRumble();
             StopFastForward();
             AudioFlushCallback(); // nothing of the old session plays into the new one
             StartGame(slug, path, title);
@@ -1602,6 +1604,7 @@ static void ShowLibrary()
         AutoSaveState();
         TicoVulkan::WaitIdle();
         g_core.reset();
+        TicoCore::StopRumble();
     }
     StopFastForward();
     OverlayUI::SetGameTitle("mGBA");
@@ -2008,6 +2011,7 @@ int main(int argc, char *argv[])
     OverlayUI::SetLibraryFolderCallbacks({});
     ImGuiOverlay::Shutdown();
     g_core.reset();
+    TicoCore::StopRumble();
 
 
 

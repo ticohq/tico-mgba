@@ -1621,6 +1621,45 @@
               "default": "enabled"
             }
           ]
+        },
+        {
+          "title": "settings_mgba_section_vibration",
+          "options": [
+            {
+              "key": "vibration",
+              "label": "settings_mgba_vibration",
+              "type": "bool",
+              "default": "enabled"
+            },
+            {
+              "key": "vibration_strength",
+              "label": "settings_mgba_vibration_strength",
+              "type": "enum",
+              "default": "100",
+              "choices": [
+                {
+                  "label": "25%",
+                  "value": "25"
+                },
+                {
+                  "label": "50%",
+                  "value": "50"
+                },
+                {
+                  "label": "75%",
+                  "value": "75"
+                },
+                {
+                  "label": "100%",
+                  "value": "100"
+                }
+              ],
+              "depends_on": {
+                "key": "vibration",
+                "value": "enabled"
+              }
+            }
+          ]
         }
       ]
     }

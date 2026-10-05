@@ -58,6 +58,10 @@ public:
     /// @brief Initialize the core
     bool Init();
 
+    /// @brief Stops every controller's vibration (the menu opened, or the
+    /// game closes mid-rumble).
+    static void StopRumble();
+
     /// @brief Load a game ROM (N64 ROMs are loaded into memory)
     bool LoadGame(const std::string &path);
     bool GetVariable(const char *key, const char **value);
