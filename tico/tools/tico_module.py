@@ -141,6 +141,15 @@ CONTROLS_TAB = ("settings_mgba_tab_controls", [
         {"key": "analog_dpad", "label": "settings_mgba_analog_dpad", "type": "bool",
          "default": "enabled"},
     ]),
+    # rumble cartridges and the Game Boy Player
+    ("settings_mgba_section_vibration", [
+        {"key": "vibration", "label": "settings_mgba_vibration", "type": "bool",
+         "default": "enabled"},
+        {"key": "vibration_strength", "label": "settings_mgba_vibration_strength",
+         "type": "enum", "default": "100",
+         "choices": [("25", "25%"), ("50", "50%"), ("75", "75%"), ("100", "100%")],
+         "depends_on": {"key": "vibration", "value": "enabled"}},
+    ]),
 ])
 
 # Labels the core does not define. key -> (en, de, es, fr, ja, pt, ru, zh)
@@ -209,6 +218,14 @@ LABELS = {
                                             "Botón de avance rápido", "Bouton d'avance rapide",
                                             "早送りボタン", "Botão do avanço rápido",
                                             "Кнопка перемотки", "快进按键"),
+    "settings_mgba_section_vibration": ("Vibration", "Vibration", "Vibración", "Vibration",
+                                        "振動", "Vibração", "Вибрация", "振动"),
+    "settings_mgba_vibration": ("Vibration", "Vibration", "Vibración", "Vibration", "振動",
+                                "Vibração", "Вибрация", "振动"),
+    "settings_mgba_vibration_strength": ("Vibration strength", "Vibrationsstärke",
+                                         "Intensidad de vibración", "Intensité des vibrations",
+                                         "振動の強さ", "Intensidade da vibração", "Сила вибрации",
+                                         "振动强度"),
     "settings_mgba_tab_controls": ("Controls", "Steuerung", "Controles", "Commandes", "操作",
                                      "Controles", "Управление", "控制"),
     "settings_mgba_section_button_mapping": ("Button mapping", "Tastenbelegung",

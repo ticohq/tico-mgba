@@ -4,6 +4,7 @@
 /// mGBA formats with a .srm fallback
 
 #include "TicoCore.h"
+#include "overlay/tico_config.h"
 #include "TicoVulkan.h"
 #include <archive.h>
 #include <archive_entry.h>
@@ -38,10 +39,6 @@
 #ifdef __SWITCH__
 #include <switch.h>
 
-/// @brief Switch vibration handles and state
-static HidVibrationDeviceHandle s_vibrationHandles[5][2] = {};
-static HidVibrationValue s_currentVibration[5][2] = {};
-static bool s_vibrationInitialized = false;
 #endif
 
 
@@ -706,27 +703,6 @@ bool TicoCore::Init()
 
     tico_debug_log("=== TicoCore::Init() ===");
 
-#ifdef __SWITCH__
-    if (!s_vibrationInitialized)
-    {
-        memset(s_currentVibration, 0, sizeof(s_currentVibration));
-        for(int i = 0; i < 5; i++) {
-            for(int j = 0; j < 2; j++) {
-                s_currentVibration[i][j].freq_low = 160.0f;
-                s_currentVibration[i][j].freq_high = 320.0f;
-            }
-        }
-        
-        hidInitializeVibrationDevices(s_vibrationHandles[0], 2, HidNpadIdType_Handheld, HidNpadStyleTag_NpadHandheld);
-        hidInitializeVibrationDevices(s_vibrationHandles[1], 2, HidNpadIdType_No1, HidNpadStyleTag_NpadJoyDual);
-        hidInitializeVibrationDevices(s_vibrationHandles[2], 2, HidNpadIdType_No2, HidNpadStyleTag_NpadJoyDual);
-        hidInitializeVibrationDevices(s_vibrationHandles[3], 2, HidNpadIdType_No3, HidNpadStyleTag_NpadJoyDual);
-        hidInitializeVibrationDevices(s_vibrationHandles[4], 2, HidNpadIdType_No4, HidNpadStyleTag_NpadJoyDual);
-        
-        s_vibrationInitialized = true;
-        tico_debug_log("Vibration devices initialized for P1-P4");
-    }
-#endif
 
     // Ensure the system directory exists (BS-X and Sufami Turbo BIOS)
     struct stat st = {0};
@@ -1548,37 +1524,105 @@ void TicoCore::LogCallback(enum retro_log_level level, const char *fmt, ...)
     }
 }
 
+#ifdef __SWITCH__
+namespace
+{
+// The vibration motors of the controller a port reads, set up again whenever
+// another controller (or the same one held differently) takes it.
+struct RumblePad
+{
+    HidNpadIdType id = HidNpadIdType_No1;
+    u32 style = 0;
+    s32 count = 0;
+    HidVibrationDeviceHandle handles[2] = {};
+    HidVibrationValue values[2] = {};
+};
+RumblePad s_rumble[4];
+
+// The controller a port reads: player 1 is the handheld Joy-Con when no
+// controller is player 1, as the input does.
+bool RumbleTarget(unsigned port, HidNpadIdType &id, u32 &style)
+{
+    id = static_cast<HidNpadIdType>(HidNpadIdType_No1 + port);
+    u32 styles = hidGetNpadStyleSet(id);
+    if (port == 0 && !styles)
+    {
+        id = HidNpadIdType_Handheld;
+        styles = hidGetNpadStyleSet(id);
+    }
+    for (u32 tag : {(u32)HidNpadStyleTag_NpadHandheld, (u32)HidNpadStyleTag_NpadFullKey,
+                    (u32)HidNpadStyleTag_NpadJoyDual, (u32)HidNpadStyleTag_NpadJoyLeft,
+                    (u32)HidNpadStyleTag_NpadJoyRight})
+        if (styles & tag)
+        {
+            style = tag;
+            return true;
+        }
+    return false; // nothing there, or a controller without HD rumble
+}
+} // namespace
+#endif
+
 bool TicoCore::SetRumbleStateCallback(unsigned port, enum retro_rumble_effect effect, uint16_t strength)
 {
 #ifdef __SWITCH__
-    if (!s_vibrationInitialized || port >= 4) 
+    if (port >= 4)
         return false;
-        
-    float amplitude = (float)strength / 65535.0f;
-    
-    int target_device = 1;
-    if (port == 0) {
-        u8 opMode = appletGetOperationMode();
-        target_device = (opMode == AppletOperationMode_Handheld) ? 0 : 1;
-    } else {
-        target_device = port + 1;
+    HidNpadIdType id;
+    u32 style;
+    if (!RumbleTarget(port, id, style))
+        return false;
+    RumblePad &pad = s_rumble[port];
+    if (!pad.count || pad.id != id || pad.style != style)
+    {
+        pad = RumblePad();
+        const s32 count = (style == HidNpadStyleTag_NpadJoyLeft || style == HidNpadStyleTag_NpadJoyRight) ? 1 : 2;
+        if (R_FAILED(hidInitializeVibrationDevices(pad.handles, count, id, (HidNpadStyleTag)style)))
+            return false;
+        pad.id = id;
+        pad.style = style;
+        pad.count = count;
+        for (HidVibrationValue &value : pad.values)
+        {
+            value.freq_low = 160.0f;
+            value.freq_high = 320.0f;
+        }
     }
-
-    HidVibrationValue *v = s_currentVibration[target_device];
-
-    if (effect == RETRO_RUMBLE_STRONG) {
-        v[0].amp_low = amplitude;
-        v[1].amp_low = amplitude;
-    } else if (effect == RETRO_RUMBLE_WEAK) {
-        v[0].amp_high = amplitude;
-        v[1].amp_high = amplitude;
+    // Controls > Vibration and Vibration strength
+    float amplitude = 0.0f;
+    if (SwitchFrontend::TicoConfig::GetConfigValue("vibration", "enabled") != "disabled")
+    {
+        const int percent = std::clamp(
+            std::atoi(SwitchFrontend::TicoConfig::GetConfigValue("vibration_strength", "100").c_str()), 0, 100);
+        amplitude = (float)strength / 65535.0f * (float)percent / 100.0f;
     }
-
-    hidSendVibrationValues(s_vibrationHandles[target_device], v, 2);
-    
-    return true;
+    for (s32 i = 0; i < pad.count; ++i)
+    {
+        if (effect == RETRO_RUMBLE_STRONG)
+            pad.values[i].amp_low = amplitude;
+        else if (effect == RETRO_RUMBLE_WEAK)
+            pad.values[i].amp_high = amplitude;
+    }
+    return R_SUCCEEDED(hidSendVibrationValues(pad.handles, pad.values, pad.count));
 #else
+    (void)port;
+    (void)effect;
+    (void)strength;
     return false;
+#endif
+}
+
+void TicoCore::StopRumble()
+{
+#ifdef __SWITCH__
+    for (RumblePad &pad : s_rumble)
+    {
+        if (!pad.count)
+            continue;
+        for (HidVibrationValue &value : pad.values)
+            value.amp_low = value.amp_high = 0.0f;
+        hidSendVibrationValues(pad.handles, pad.values, pad.count);
+    }
 #endif
 }
 
