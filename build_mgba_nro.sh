@@ -42,11 +42,17 @@ echo "NVK: $NVK_ARCHIVE_SRC"
 # ============================================================
 echo "--- Step 1: Building mgba static library ---"
 
-cd "$ROOT_DIR"
-make -f Makefile.libretro clean platform=libnx 2>/dev/null || true
-make -f Makefile.libretro -j$(nproc) platform=libnx
+# upstream builds the libretro core with CMake (Makefile.libretro is gone);
+# a fresh build directory, so an old core can never be linked in
+CORE_BUILD="$ROOT_DIR/build-libretro-nx"
+STATIC_LIB="$CORE_BUILD/mgba_libretro_libnx.a"
+rm -rf "$CORE_BUILD" "$ROOT_DIR/mgba_libretro_libnx.a"
+cmake -S "$ROOT_DIR" -B "$CORE_BUILD" \
+    -DCMAKE_TOOLCHAIN_FILE="$DEVKITPRO/cmake/Switch.cmake" -DCMAKE_BUILD_TYPE=Release \
+    -DLIBMGBA_ONLY=ON -DBUILD_LIBRETRO=ON -DLIBRETRO_STATIC=ON -DLIBRETRO_SUFFIX=_libnx \
+    -DBUILD_SHARED_LIBS=OFF > /dev/null || exit 1
+cmake --build "$CORE_BUILD" --target mgba_libretro -- -j$(nproc) || exit 1
 
-STATIC_LIB="$ROOT_DIR/mgba_libretro_libnx.a"
 if [ ! -f "$STATIC_LIB" ]; then
     echo "Error: Static library not found at $STATIC_LIB"
     exit 1
