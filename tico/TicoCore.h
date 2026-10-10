@@ -265,8 +265,6 @@ public:
     ImTextureID m_raIconTexture = ImTextureID_Invalid; // ra.svg icon
     void LoadRAIcon();                        // load ra.svg as texture
     ImTextureID GetRABadgeTexture(const std::string& badge_name);
-    void DownloadAndCacheBadge(const std::string& badge_name); // runs on worker
-    void PreloadRABadges();                   // called after game identification
     std::vector<std::pair<std::string, std::vector<unsigned char>>> m_raPendingBadgeUploads;
     std::mutex m_raBadgeUploadMutex;
     void ProcessPendingBadgeUploads();        // called from main thread (RunFrame)
