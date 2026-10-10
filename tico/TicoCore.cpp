@@ -1,9 +1,10 @@
 /// @file TicoCore.cpp
 /// @brief Simplified libretro frontend for mgba with tico overlay
-/// Software-rendered core: frames go to TicoShaderChain, saves use native
-/// mGBA formats with a .srm fallback
+/// Software-rendered core: frames go to TicoShaderChain, saves are libretro's
+/// <game>.srm (an older tico's <game>.sav is renamed to it)
 
 #include "TicoCore.h"
+#include "TicoSession.h"
 #include "overlay/tico_config.h"
 #include "TicoVulkan.h"
 #include <archive.h>
@@ -110,22 +111,32 @@ void TicoCore::LoadSaveData()
     if (lastDot != std::string::npos)
         filename = filename.substr(0, lastDot);
 
-    std::string savePathSav = TicoConfig::SavesPath() + filename + ".sav";
-    std::string savePathSrm = TicoConfig::SavesPath() + filename + ".srm";
-
-    std::ifstream fileSav(savePathSav, std::ios::binary);
-    if (fileSav)
+    // libretro's own name for it (.srm). Before, tico wrote <game>.sav: that
+    // file becomes the .srm the first time the game runs.
+    const std::string savePathSrm = TicoConfig::SavesPath() + filename + ".srm";
+    const std::string savePathSav = TicoConfig::SavesPath() + filename + ".sav";
+    struct stat srmStat;
+    struct stat savStat;
+    if (stat(savePathSrm.c_str(), &srmStat) != 0 && stat(savePathSav.c_str(), &savStat) == 0)
     {
-        fileSav.read((char *)data, size);
-        tico_debug_log("Loaded SRAM from %s", savePathSav.c_str());
-        return;
+        if (rename(savePathSav.c_str(), savePathSrm.c_str()) == 0)
+            tico_debug_log("Renamed %s to .srm", savePathSav.c_str());
     }
 
     std::ifstream fileSrm(savePathSrm, std::ios::binary);
     if (fileSrm)
     {
         fileSrm.read((char *)data, size);
-        tico_debug_log("Loaded SRAM from %s (legacy fallback)", savePathSrm.c_str());
+        tico_debug_log("Loaded SRAM from %s", savePathSrm.c_str());
+        return;
+    }
+
+    // The rename failed (say, a read-only card): read the old file as it is.
+    std::ifstream fileSav(savePathSav, std::ios::binary);
+    if (fileSav)
+    {
+        fileSav.read((char *)data, size);
+        tico_debug_log("Loaded SRAM from %s (legacy name)", savePathSav.c_str());
     }
 }
 
@@ -150,7 +161,7 @@ void TicoCore::SaveSaveData()
     struct stat st = {0};
     TicoConfig::MakeDirs(TicoConfig::SavesPath());
 
-    std::string savePath = TicoConfig::SavesPath() + filename + ".sav";
+    std::string savePath = TicoConfig::SavesPath() + filename + ".srm";
 
     if (TicoSafeFile::Write(savePath, data, size, kSaveBackups))
         tico_debug_log("Saved SRAM to %s", savePath.c_str());
@@ -285,11 +296,6 @@ void TicoCore::RAWorkerEntry(void* arg) {
             self->m_raJobQueue.pop_front();
         }
         
-        // Handle badge download jobs specially
-        if (job.url == "__badge__") {
-            self->DownloadAndCacheBadge(job.post_data);
-            continue;
-        }
         
         // Do the HTTP request on this worker thread
         CURL *curl = curl_easy_init();
@@ -521,8 +527,8 @@ namespace TicoConfig {
 // BIOS files (gba_bios.bin, gb_bios.bin, gbc_bios.bin, sgb_bios.bin) live in
 // <system>/gba/, the module's system_dir, for every console it runs.
 std::string SystemPath() { return ContentRoot("tico_system_path", "sdmc:/tico/system/") + "gba/"; }
-std::string SavesPath() { return ContentRoot("tico_saves_path", "sdmc:/tico/saves/") + CURRENT_SLUG + "/"; }
-std::string StatesPath() { return ContentRoot("tico_states_path", "sdmc:/tico/states/") + CURRENT_SLUG + "/"; }
+std::string SavesPath() { return tico::UserContentRoot(ContentRoot("tico_saves_path", "sdmc:/tico/saves/"), true) + CURRENT_SLUG + "/"; }
+std::string StatesPath() { return tico::UserContentRoot(ContentRoot("tico_states_path", "sdmc:/tico/states/"), false) + CURRENT_SLUG + "/"; }
 
 void MakeDirs(const std::string &path)
 {
@@ -716,12 +722,7 @@ bool TicoCore::Init()
     tico_debug_log("Config loaded, %lu options", m_configOptions.size());
 
     bool soundEnabled = false;
-#ifdef __SWITCH__
-    std::string audioConfigPath = "sdmc:/tico/config/audio.jsonc";
-#else
-    std::string audioConfigPath = "tico/config/audio.jsonc";
-#endif
-    std::ifstream audioIn(audioConfigPath);
+    tico::SettingsStream audioIn("audio"); // The user's, from tico
     if (audioIn.is_open()) {
         nlohmann::json j = nlohmann::json::parse(audioIn, nullptr, false, true); // allow_exceptions = false, allow_comments = true
         if (!j.is_discarded() && j.contains("sound_enabled")) {
@@ -2030,62 +2031,22 @@ bool TicoCore::GetVariable(const char *key, const char **value)
 
 void TicoCore::LoadRAConfig()
 {
-    std::string accountsPath = "sdmc:/tico/config/accounts.jsonc";
-    std::ifstream file(accountsPath);
-    if (!file.is_open()) {
-        tico_debug_log("WARN: accounts.jsonc not found at %s", accountsPath.c_str());
-        return;
-    }
-
-    tico_debug_log("RA: Found accounts.jsonc at %s", accountsPath.c_str());
-    nlohmann::json j = nlohmann::json::parse(file, nullptr, false, true);
-    if (!j.is_discarded() && j.is_object()) {
-        m_raEnabled = j.value("ra_enabled", false);
-        m_raUsername = j.value("ra_username", "");
-        m_raToken = j.value("ra_token", "");
-        m_raPassword = j.value("ra_password", "");
-        m_raHardcore = j.value("ra_hardcore_mode", false);
-        
-        // Read alert position
-        std::string posStr = j.value("ra_alert_position", "top_right");
-        if (posStr == "top_left") m_raAlertPosition = RAAlertPosition::TopLeft;
-        else if (posStr == "top_right") m_raAlertPosition = RAAlertPosition::TopRight;
-        else if (posStr == "bottom_left") m_raAlertPosition = RAAlertPosition::BottomLeft;
-        else if (posStr == "bottom_right") m_raAlertPosition = RAAlertPosition::BottomRight;
-        
-        tico_debug_log("RA: Config loaded (Enabled: %d, User: %s, HasToken: %d, HasPassword: %d)",
-            m_raEnabled, m_raUsername.c_str(), !m_raToken.empty(), !m_raPassword.empty());
-    } else {
-        tico_debug_log("WARN: Failed to parse accounts.jsonc for RA settings.");
-    }
+    // tico hands over only a token, in the sealed session (TicoSession.h);
+    // the password stays with tico.
+    const tico::Session& session = tico::CurrentSession();
+    m_raEnabled = session.valid && session.raEnabled && !session.raToken.empty();
+    m_raUsername = session.raUsername;
+    m_raToken = session.raToken;
+    m_raPassword.clear();
+    m_raHardcore = session.raHardcore;
+    tico_debug_log("RA: Session %s (Enabled: %d, User: %s)",
+        session.valid ? "opened" : "missing", m_raEnabled, m_raUsername.c_str());
 }
 
 void TicoCore::SaveRAToken(const std::string& token)
 {
-    std::string accountsPath = "sdmc:/tico/config/accounts.jsonc";
-    nlohmann::json j = nlohmann::json::object();
-    
-    // Read existing config
-    std::ifstream inFile(accountsPath);
-    if (inFile.is_open()) {
-        auto parsed = nlohmann::json::parse(inFile, nullptr, false, true);
-        inFile.close();
-        if (!parsed.is_discarded()) j = parsed;
-    }
-    
-    // Update token
-    j["ra_token"] = token;
+    // A refreshed token lives for this run only; tico keeps the account's own.
     m_raToken = token;
-    
-    // Write back
-    std::ofstream outFile(accountsPath);
-    if (outFile.is_open()) {
-        outFile << j.dump(4);
-        outFile.close();
-        tico_debug_log("RA: Token saved to accounts.jsonc");
-    } else {
-        tico_debug_log("RA: WARNING - Failed to save token to %s", accountsPath.c_str());
-    }
 }
 
 void TicoCore::RAIdentifyGame(rc_client_t* c, TicoCore* core)
@@ -2114,8 +2075,6 @@ void TicoCore::RAIdentifyGame(rc_client_t* c, TicoCore* core)
                     core->PushRANotification("RetroAchievements",
                         std::string("Playing: ") + game->title, "ra_icon");
                 }
-                // Preload all achievement badges in the background
-                core->PreloadRABadges();
             } else {
                 tico_debug_log("RA: Failed to identify game: %s", error_message ? error_message : "Unknown");
                 core->PushRANotification("RetroAchievements", 
@@ -2159,13 +2118,15 @@ void TicoCore::PushRANotification(const std::string& title, const std::string& d
     n.title = title;
     n.description = desc;
     n.badge_name = badge;
+    // Badge fetching off in tico: the pop-up shows the placeholder.
+    if (!tico::CurrentSession().raBadges) n.badge_name = "ra_icon";
     n.timer = 0.0f;
     
     // Look up badge texture
-    if (badge == "ra_icon") {
+    if (n.badge_name == "ra_icon") {
         n.textureId = m_raIconTexture;
     } else if (!badge.empty()) {
-        n.textureId = GetRABadgeTexture(badge);
+        n.textureId = GetRABadgeTexture(n.badge_name);
     }
     
     // Cap at 5 visible notifications
@@ -2196,108 +2157,7 @@ ImTextureID TicoCore::GetRABadgeTexture(const std::string& badge_name)
     return ImTextureID_Invalid;
 }
 
-void TicoCore::DownloadAndCacheBadge(const std::string& badge_name)
-{
-    // Check if already cached on disk
-    std::string cachePath = "sdmc:/tico/assets/ra/" + badge_name + ".png";
-    FILE* check = fopen(cachePath.c_str(), "rb");
-    if (check) { fclose(check); return; } // already on disk
-    
-    // Download from RA
-    std::string url = "https://media.retroachievements.org/Badge/" + badge_name + ".png";
-    std::string response;
-    
-    CURL* curl = curl_easy_init();
-    if (!curl) return;
-    
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, RAUserAgent());
-    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, CurlWriteCallback);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
-    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
-    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-    
-    CURLcode res = curl_easy_perform(curl);
-    long httpCode = 0;
-    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &httpCode);
-    curl_easy_cleanup(curl);
-    
-    if (res != CURLE_OK || httpCode != 200 || response.empty()) {
-        tico_debug_log("RA: Failed to download badge %s (http %ld)", badge_name.c_str(), httpCode);
-        return;
-    }
-    
-    // Ensure directory exists
-    mkdir("sdmc:/tico/assets/ra", 0777);
-    
-    // Save to disk
-    FILE* fp = fopen(cachePath.c_str(), "wb");
-    if (fp) {
-        fwrite(response.data(), 1, response.size(), fp);
-        fclose(fp);
-        tico_debug_log("RA: Cached badge %s (%zu bytes)", badge_name.c_str(), response.size());
-    }
-}
 
-void TicoCore::PreloadRABadges()
-{
-    if (!m_rcClient) return;
-    
-    tico_debug_log("RA: Preloading achievement badges...");
-    
-    // Get all achievement lists
-    rc_client_achievement_list_t* list = rc_client_create_achievement_list(m_rcClient,
-        RC_CLIENT_ACHIEVEMENT_CATEGORY_CORE_AND_UNOFFICIAL,
-        RC_CLIENT_ACHIEVEMENT_LIST_GROUPING_PROGRESS);
-    if (!list) {
-        tico_debug_log("RA: No achievement list to preload");
-        return;
-    }
-    
-    // Collect all unique badge names
-    std::vector<std::string> badges;
-    for (uint32_t b = 0; b < list->num_buckets; b++) {
-        for (uint32_t a = 0; a < list->buckets[b].num_achievements; a++) {
-            const rc_client_achievement_t* ach = list->buckets[b].achievements[a];
-            if (ach && ach->badge_name[0]) {
-                std::string bn = ach->badge_name;
-                // Check if not already cached on disk
-                std::string path = "sdmc:/tico/assets/ra/" + bn + ".png";
-                FILE* check = fopen(path.c_str(), "rb");
-                if (check) { fclose(check); continue; }
-                badges.push_back(bn);
-            }
-        }
-    }
-    rc_client_destroy_achievement_list(list);
-    
-    if (badges.empty()) {
-        tico_debug_log("RA: All badges already cached");
-        return;
-    }
-    
-    tico_debug_log("RA: Need to download %zu badges", badges.size());
-    
-    // Queue downloads on the RA worker thread (via a regular job mechanism)
-    // We'll use a simple approach: spawn them as background tasks
-    for (const auto& badge : badges) {
-        // Push to job queue so worker thread does the download
-        std::string badgeCopy = badge;
-        {
-            std::lock_guard<std::mutex> lock(m_raJobMutex);
-            // We abuse the job queue: url = badge download URL, post_data = badge_name,
-            // callback = nullptr (special marker for badge download)
-            RAJob job;
-            job.url = "__badge__";
-            job.post_data = badgeCopy;
-            job.callback = nullptr;
-            job.callback_data = nullptr;
-            m_raJobQueue.push_back(std::move(job));
-        }
-        m_raJobCond.notify_one();
-    }
-}
 
 void TicoCore::LoadRAIcon()
 {

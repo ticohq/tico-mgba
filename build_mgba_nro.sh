@@ -225,7 +225,7 @@ NVK_ARCHIVE="$BUILD_DIR/libvulkan.a"
 cp "$NVK_ARCHIVE_SRC" "$NVK_ARCHIVE"
 "$DEVKITA64/bin/aarch64-none-elf-ranlib" "$NVK_ARCHIVE"
 
-LINK_LIBS="$LINK_LIBS -lcurl -lmbedtls -lmbedx509 -lmbedcrypto -larchive -lbz2 -llzma -llz4 -lz -lzstd"
+LINK_LIBS="$LINK_LIBS -lcurl -lsodium -lmbedtls -lmbedx509 -lmbedcrypto -larchive -lbz2 -llzma -llz4 -lz -lzstd"
 LINK_LIBS="$LINK_LIBS -lusbhsfs -lusbntfs -lnx -lm -lstdc++ -lpthread"
 
 $CXX $LINK_FLAGS \

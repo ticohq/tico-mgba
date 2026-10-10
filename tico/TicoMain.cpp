@@ -3,6 +3,7 @@
 /// Sets up SDL/Vulkan/ImGui and runs the main loop
 
 #include "TicoCore.h"
+#include "TicoSession.h"
 #include "UsbStorage.h"
 #include "TicoConfig.h"
 #include "TicoAudio.h"
@@ -1369,11 +1370,7 @@ static std::string WithSlash(std::string path)
 static std::vector<std::string> TicoRomBases()
 {
     std::vector<std::string> bases;
-#ifdef __SWITCH__
-    std::ifstream file("sdmc:/tico/config/general.jsonc");
-#else
-    std::ifstream file("tico/config/general.jsonc");
-#endif
+    tico::SettingsStream file("general");
     const nlohmann::json j = file.good() ? nlohmann::json::parse(file, nullptr, false, true)
                                          : nlohmann::json();
     std::string roms = j.is_object() ? j.value("roms_path", std::string()) : std::string();
