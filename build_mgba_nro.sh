@@ -253,7 +253,7 @@ NACPTOOL="$DEVKITPRO/tools/bin/nacptool"
 
 # Create NACP
 NACP_FILE="$BUILD_DIR/mgba.nacp"
-$NACPTOOL --create "tico mGBA" "ticoverse.com" "$APP_VERSION" "$NACP_FILE"
+$NACPTOOL --create "tico-mgba" "endrift/ticoverse.com" "$APP_VERSION" "$NACP_FILE"
 
 # Convert ELF to NRO with romfs
 ROMFS_DIR="$BUILD_DIR/romfs"
@@ -268,7 +268,7 @@ mkdir -p "$ROMFS_DIR"
 mkdir -p "$ROMFS_DIR/module"
 cp "$TICO_DIR/module/settings.json" "$ROMFS_DIR/module/"
 
-ELF2NRO_ARGS=(--nacp="$NACP_FILE")
+ELF2NRO_ARGS=(--nacp="$NACP_FILE" --icon="$ROOT_DIR/tico/icon.jpg")
 
 if [ -n "$(find "$ROMFS_DIR" -type f 2>/dev/null | head -1)" ]; then
     echo "Embedding romfs from: $ROMFS_DIR"
