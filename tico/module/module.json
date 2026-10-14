@@ -5,6 +5,7 @@
   "launch": "\"{nro}\" \"{slug}\" \"{rom}\" \"{title}\"",
   "settings": "config/modules/mgba/settings.json",
   "config_file": "mgba.jsonc",
+  "system_dir": "mgba",
   "is_libretro": true,
   "achievements": true,
   "systems": [
