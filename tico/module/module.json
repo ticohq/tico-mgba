@@ -22,7 +22,7 @@
         ".7z",
         ".rar"
       ],
-      "games_file": "gba.json",
+      "games_file": "gba.dat",
       "retroachievements_id": 5,
       "colors": {
         "start": "7A6FE6",
