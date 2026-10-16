@@ -26,6 +26,17 @@ It adds:
 
 ----------
 
+## Credits
+
+This fork is built on top of the libretro port of mGBA, by endrift.
+All core emulation work belongs to the mGBA team and its contributors.
+
+- **Official mGBA repository** — https://github.com/mgba-emu/mgba
+- **mGBA website** — https://mgba.io
+- **libretro mGBA** — https://github.com/libretro/mgba
+
+----------
+
 ## A Note
 
 A lot of work in this scene disappears over time — not because it lacked value, but because it was never shared.
