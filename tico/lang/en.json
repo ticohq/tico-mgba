@@ -131,5 +131,6 @@
     "settings_mgba_tab_video": "Video",
     "settings_mgba_use_bios_file": "Use BIOS File",
     "settings_mgba_vibration": "Vibration",
-    "settings_mgba_vibration_strength": "Vibration strength"
+    "settings_mgba_vibration_strength": "Vibration strength",
+    "emulator_quick_menu_tip": "Press {plus} and {minus} together to open the quick menu"
 }
