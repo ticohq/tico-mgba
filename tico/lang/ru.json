@@ -194,5 +194,6 @@
     "settings_mgba_value_up": "Вверх",
     "settings_mgba_value_use_device_sensor_if_available": "Использовать датчик устройства",
     "settings_mgba_vibration": "Вибрация",
-    "settings_mgba_vibration_strength": "Сила вибрации"
+    "settings_mgba_vibration_strength": "Сила вибрации",
+    "emulator_quick_menu_tip": "Нажмите {plus} и {minus} вместе, чтобы открыть быстрое меню"
 }

@@ -191,5 +191,6 @@
     "settings_mgba_value_up": "Haut",
     "settings_mgba_value_use_device_sensor_if_available": "Utiliser le capteur de l'appareil si disponible",
     "settings_mgba_vibration": "Vibration",
-    "settings_mgba_vibration_strength": "Intensité des vibrations"
+    "settings_mgba_vibration_strength": "Intensité des vibrations",
+    "emulator_quick_menu_tip": "Appuyez sur {plus} et {minus} ensemble pour ouvrir le menu rapide"
 }

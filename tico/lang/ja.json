@@ -192,5 +192,6 @@
     "settings_mgba_value_up": "上",
     "settings_mgba_value_use_device_sensor_if_available": "利用可能な場合は端末センサーを使用する",
     "settings_mgba_vibration": "振動",
-    "settings_mgba_vibration_strength": "振動の強さ"
+    "settings_mgba_vibration_strength": "振動の強さ",
+    "emulator_quick_menu_tip": "{plus}と{minus}を同時に押すとクイックメニューが開きます"
 }
