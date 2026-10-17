@@ -258,7 +258,12 @@ void mCoreConfigDirectory(char* out, size_t outLength) {
 #elif defined(PSP2)
 	snprintf(out, outLength, "ux0:data/%s", projectName);
 	sceIoMkdir(out, 0777);
-#elif defined(GEKKO) || defined(__SWITCH__)
+#elif defined(__SWITCH__)
+	// tico: nothing of mGBA's at the SD card's root. The libretro core never
+	// writes a config of its own, so this is only where one would be looked
+	// for, beside the core's other files; nothing is created for it.
+	snprintf(out, outLength, "sdmc:/tico/system/%s", binaryName);
+#elif defined(GEKKO)
 	snprintf(out, outLength, "/%s", projectName);
 	mkdir(out, 0777);
 #elif defined(__3DS__)
