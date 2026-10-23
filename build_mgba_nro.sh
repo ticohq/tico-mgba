@@ -17,7 +17,7 @@ BUILD_DIR="$ROOT_DIR/build_tico"
 TICO_DIR="$ROOT_DIR/tico"
 
 # NACP version, and the version RetroAchievements sees in the User-Agent
-APP_VERSION="3.0.0"
+APP_VERSION="3.0.1"
 
 # Rendering is Vulkan on Mesa's NVK, linked statically (a loaderless
 # libvulkan.a), as in tico-snes9x and tico-gambatte. Point MESA_NVK_DIR at
