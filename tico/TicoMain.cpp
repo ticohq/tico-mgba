@@ -292,7 +292,9 @@ bool InitWindow()
     }
     else
     {
-        if (Mix_OpenAudio(44100, AUDIO_S16SYS, 2, 1024) < 0)
+        // At the rate TicoAudio resamples the core to, or the sound plays slower
+        // and lower, and the overfull buffer drops batches (crackling)
+        if (Mix_OpenAudio(TicoAudio::SAMPLE_RATE, AUDIO_S16SYS, TicoAudio::CHANNELS, 1024) < 0)
         {
             LOG_ERROR("AUDIO", "Mix_OpenAudio failed: %s", Mix_GetError());
         }
