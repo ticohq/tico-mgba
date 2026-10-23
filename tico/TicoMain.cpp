@@ -111,20 +111,6 @@ static bool g_controllersDirty = true;
 #ifdef __SWITCH__
 static u8 g_lastOperationMode = 255;
 
-static void ApplySwitchPerformanceProfile()
-{
-    Result rcNormal = apmSetPerformanceConfiguration(ApmPerformanceMode_Normal, 0x92220007);
-    Result rcBoost = apmSetPerformanceConfiguration(ApmPerformanceMode_Boost, 0x92220008);
-    if (R_FAILED(rcNormal) || R_FAILED(rcBoost))
-    {
-        LOG_WARN("HOME", "Switch performance profile failed (normal=0x%x boost=0x%x)", rcNormal, rcBoost);
-    }
-    else
-    {
-        LOG_INFO("HOME", "Applied Switch performance profile");
-    }
-}
-
 static void PinCurrentThreadToCore(int core, const char *label)
 {
     if (core < 0 || core > 2)
@@ -1867,7 +1853,6 @@ int main(int argc, char *argv[])
     LOG_INFO("HOME", "InitWindow succeeded");
 
 #ifdef __SWITCH__
-    ApplySwitchPerformanceProfile();
     PinCurrentThreadToCore(2, "main/render");
 #endif
 
