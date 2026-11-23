@@ -869,14 +869,6 @@
                   "value": "B"
                 },
                 {
-                  "label": "X",
-                  "value": "X"
-                },
-                {
-                  "label": "Y",
-                  "value": "Y"
-                },
-                {
                   "label": "L",
                   "value": "L"
                 },
@@ -885,28 +877,12 @@
                   "value": "R"
                 },
                 {
-                  "label": "ZL",
-                  "value": "ZL"
+                  "label": "Start",
+                  "value": "Start"
                 },
                 {
-                  "label": "ZR",
-                  "value": "ZR"
-                },
-                {
-                  "label": "Plus",
-                  "value": "Plus"
-                },
-                {
-                  "label": "Minus",
-                  "value": "Minus"
-                },
-                {
-                  "label": "Left stick",
-                  "value": "StickL"
-                },
-                {
-                  "label": "Right stick",
-                  "value": "StickR"
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
                   "label": "Up",
@@ -945,12 +921,56 @@
                   "value": "B"
                 },
                 {
-                  "label": "X",
-                  "value": "X"
+                  "label": "L",
+                  "value": "L"
                 },
                 {
-                  "label": "Y",
-                  "value": "Y"
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "Start",
+                  "value": "Start"
+                },
+                {
+                  "label": "Select",
+                  "value": "Select"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_x",
+              "label": "settings_mgba_map_x",
+              "type": "enum",
+              "default": "Start",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
                 },
                 {
                   "label": "L",
@@ -961,28 +981,64 @@
                   "value": "R"
                 },
                 {
-                  "label": "ZL",
-                  "value": "ZL"
+                  "label": "Start",
+                  "value": "Start"
                 },
                 {
-                  "label": "ZR",
-                  "value": "ZR"
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
-                  "label": "Plus",
-                  "value": "Plus"
+                  "label": "Up",
+                  "value": "Up"
                 },
                 {
-                  "label": "Minus",
-                  "value": "Minus"
+                  "label": "Down",
+                  "value": "Down"
                 },
                 {
-                  "label": "Left stick",
-                  "value": "StickL"
+                  "label": "Left",
+                  "value": "Left"
                 },
                 {
-                  "label": "Right stick",
-                  "value": "StickR"
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_y",
+              "label": "settings_mgba_map_y",
+              "type": "enum",
+              "default": "Select",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "Start",
+                  "value": "Start"
+                },
+                {
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
                   "label": "Up",
@@ -1021,14 +1077,6 @@
                   "value": "B"
                 },
                 {
-                  "label": "X",
-                  "value": "X"
-                },
-                {
-                  "label": "Y",
-                  "value": "Y"
-                },
-                {
                   "label": "L",
                   "value": "L"
                 },
@@ -1037,28 +1085,12 @@
                   "value": "R"
                 },
                 {
-                  "label": "ZL",
-                  "value": "ZL"
+                  "label": "Start",
+                  "value": "Start"
                 },
                 {
-                  "label": "ZR",
-                  "value": "ZR"
-                },
-                {
-                  "label": "Plus",
-                  "value": "Plus"
-                },
-                {
-                  "label": "Minus",
-                  "value": "Minus"
-                },
-                {
-                  "label": "Left stick",
-                  "value": "StickL"
-                },
-                {
-                  "label": "Right stick",
-                  "value": "StickR"
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
                   "label": "Up",
@@ -1097,14 +1129,6 @@
                   "value": "B"
                 },
                 {
-                  "label": "X",
-                  "value": "X"
-                },
-                {
-                  "label": "Y",
-                  "value": "Y"
-                },
-                {
                   "label": "L",
                   "value": "L"
                 },
@@ -1113,28 +1137,12 @@
                   "value": "R"
                 },
                 {
-                  "label": "ZL",
-                  "value": "ZL"
+                  "label": "Start",
+                  "value": "Start"
                 },
                 {
-                  "label": "ZR",
-                  "value": "ZR"
-                },
-                {
-                  "label": "Plus",
-                  "value": "Plus"
-                },
-                {
-                  "label": "Minus",
-                  "value": "Minus"
-                },
-                {
-                  "label": "Left stick",
-                  "value": "StickL"
-                },
-                {
-                  "label": "Right stick",
-                  "value": "StickR"
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
                   "label": "Up",
@@ -1159,10 +1167,10 @@
               ]
             },
             {
-              "key": "map_start",
-              "label": "settings_mgba_map_start",
+              "key": "map_zl",
+              "label": "settings_mgba_map_zl",
               "type": "enum",
-              "default": "Plus",
+              "default": "None",
               "choices": [
                 {
                   "label": "A",
@@ -1173,14 +1181,6 @@
                   "value": "B"
                 },
                 {
-                  "label": "X",
-                  "value": "X"
-                },
-                {
-                  "label": "Y",
-                  "value": "Y"
-                },
-                {
                   "label": "L",
                   "value": "L"
                 },
@@ -1189,28 +1189,12 @@
                   "value": "R"
                 },
                 {
-                  "label": "ZL",
-                  "value": "ZL"
+                  "label": "Start",
+                  "value": "Start"
                 },
                 {
-                  "label": "ZR",
-                  "value": "ZR"
-                },
-                {
-                  "label": "Plus",
-                  "value": "Plus"
-                },
-                {
-                  "label": "Minus",
-                  "value": "Minus"
-                },
-                {
-                  "label": "Left stick",
-                  "value": "StickL"
-                },
-                {
-                  "label": "Right stick",
-                  "value": "StickR"
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
                   "label": "Up",
@@ -1235,10 +1219,10 @@
               ]
             },
             {
-              "key": "map_select",
-              "label": "settings_mgba_map_select",
+              "key": "map_zr",
+              "label": "settings_mgba_map_zr",
               "type": "enum",
-              "default": "Minus",
+              "default": "None",
               "choices": [
                 {
                   "label": "A",
@@ -1249,12 +1233,56 @@
                   "value": "B"
                 },
                 {
-                  "label": "X",
-                  "value": "X"
+                  "label": "L",
+                  "value": "L"
                 },
                 {
-                  "label": "Y",
-                  "value": "Y"
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "Start",
+                  "value": "Start"
+                },
+                {
+                  "label": "Select",
+                  "value": "Select"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_plus",
+              "label": "settings_mgba_map_plus",
+              "type": "enum",
+              "default": "Start",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
                 },
                 {
                   "label": "L",
@@ -1265,28 +1293,64 @@
                   "value": "R"
                 },
                 {
-                  "label": "ZL",
-                  "value": "ZL"
+                  "label": "Start",
+                  "value": "Start"
                 },
                 {
-                  "label": "ZR",
-                  "value": "ZR"
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
-                  "label": "Plus",
-                  "value": "Plus"
+                  "label": "Up",
+                  "value": "Up"
                 },
                 {
-                  "label": "Minus",
-                  "value": "Minus"
+                  "label": "Down",
+                  "value": "Down"
                 },
                 {
-                  "label": "Left stick",
-                  "value": "StickL"
+                  "label": "Left",
+                  "value": "Left"
                 },
                 {
-                  "label": "Right stick",
-                  "value": "StickR"
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_minus",
+              "label": "settings_mgba_map_minus",
+              "type": "enum",
+              "default": "Select",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "Start",
+                  "value": "Start"
+                },
+                {
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
                   "label": "Up",
@@ -1325,14 +1389,6 @@
                   "value": "B"
                 },
                 {
-                  "label": "X",
-                  "value": "X"
-                },
-                {
-                  "label": "Y",
-                  "value": "Y"
-                },
-                {
                   "label": "L",
                   "value": "L"
                 },
@@ -1341,28 +1397,12 @@
                   "value": "R"
                 },
                 {
-                  "label": "ZL",
-                  "value": "ZL"
+                  "label": "Start",
+                  "value": "Start"
                 },
                 {
-                  "label": "ZR",
-                  "value": "ZR"
-                },
-                {
-                  "label": "Plus",
-                  "value": "Plus"
-                },
-                {
-                  "label": "Minus",
-                  "value": "Minus"
-                },
-                {
-                  "label": "Left stick",
-                  "value": "StickL"
-                },
-                {
-                  "label": "Right stick",
-                  "value": "StickR"
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
                   "label": "Up",
@@ -1401,14 +1441,6 @@
                   "value": "B"
                 },
                 {
-                  "label": "X",
-                  "value": "X"
-                },
-                {
-                  "label": "Y",
-                  "value": "Y"
-                },
-                {
                   "label": "L",
                   "value": "L"
                 },
@@ -1417,28 +1449,12 @@
                   "value": "R"
                 },
                 {
-                  "label": "ZL",
-                  "value": "ZL"
+                  "label": "Start",
+                  "value": "Start"
                 },
                 {
-                  "label": "ZR",
-                  "value": "ZR"
-                },
-                {
-                  "label": "Plus",
-                  "value": "Plus"
-                },
-                {
-                  "label": "Minus",
-                  "value": "Minus"
-                },
-                {
-                  "label": "Left stick",
-                  "value": "StickL"
-                },
-                {
-                  "label": "Right stick",
-                  "value": "StickR"
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
                   "label": "Up",
@@ -1477,14 +1493,6 @@
                   "value": "B"
                 },
                 {
-                  "label": "X",
-                  "value": "X"
-                },
-                {
-                  "label": "Y",
-                  "value": "Y"
-                },
-                {
                   "label": "L",
                   "value": "L"
                 },
@@ -1493,28 +1501,12 @@
                   "value": "R"
                 },
                 {
-                  "label": "ZL",
-                  "value": "ZL"
+                  "label": "Start",
+                  "value": "Start"
                 },
                 {
-                  "label": "ZR",
-                  "value": "ZR"
-                },
-                {
-                  "label": "Plus",
-                  "value": "Plus"
-                },
-                {
-                  "label": "Minus",
-                  "value": "Minus"
-                },
-                {
-                  "label": "Left stick",
-                  "value": "StickL"
-                },
-                {
-                  "label": "Right stick",
-                  "value": "StickR"
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
                   "label": "Up",
@@ -1553,12 +1545,56 @@
                   "value": "B"
                 },
                 {
-                  "label": "X",
-                  "value": "X"
+                  "label": "L",
+                  "value": "L"
                 },
                 {
-                  "label": "Y",
-                  "value": "Y"
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "Start",
+                  "value": "Start"
+                },
+                {
+                  "label": "Select",
+                  "value": "Select"
+                },
+                {
+                  "label": "Up",
+                  "value": "Up"
+                },
+                {
+                  "label": "Down",
+                  "value": "Down"
+                },
+                {
+                  "label": "Left",
+                  "value": "Left"
+                },
+                {
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_stickl",
+              "label": "settings_mgba_map_stickl",
+              "type": "enum",
+              "default": "None",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
                 },
                 {
                   "label": "L",
@@ -1569,28 +1605,64 @@
                   "value": "R"
                 },
                 {
-                  "label": "ZL",
-                  "value": "ZL"
+                  "label": "Start",
+                  "value": "Start"
                 },
                 {
-                  "label": "ZR",
-                  "value": "ZR"
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
-                  "label": "Plus",
-                  "value": "Plus"
+                  "label": "Up",
+                  "value": "Up"
                 },
                 {
-                  "label": "Minus",
-                  "value": "Minus"
+                  "label": "Down",
+                  "value": "Down"
                 },
                 {
-                  "label": "Left stick",
-                  "value": "StickL"
+                  "label": "Left",
+                  "value": "Left"
                 },
                 {
-                  "label": "Right stick",
-                  "value": "StickR"
+                  "label": "Right",
+                  "value": "Right"
+                },
+                {
+                  "label": "Disabled",
+                  "value": "None"
+                }
+              ]
+            },
+            {
+              "key": "map_stickr",
+              "label": "settings_mgba_map_stickr",
+              "type": "enum",
+              "default": "None",
+              "choices": [
+                {
+                  "label": "A",
+                  "value": "A"
+                },
+                {
+                  "label": "B",
+                  "value": "B"
+                },
+                {
+                  "label": "L",
+                  "value": "L"
+                },
+                {
+                  "label": "R",
+                  "value": "R"
+                },
+                {
+                  "label": "Start",
+                  "value": "Start"
+                },
+                {
+                  "label": "Select",
+                  "value": "Select"
                 },
                 {
                   "label": "Up",

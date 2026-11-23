@@ -1214,25 +1214,46 @@ static uint32_t SwitchButtonsHeld(SDL_GameController *pad)
     return held;
 }
 
-// GBA (and Game Boy) buttons, with the Switch button each sits on by default:
-// each on its namesake, Start and Select on Plus and Minus.
+static int RetroIdFor(const std::string &name)
+{
+    static const std::pair<const char *, unsigned> kNames[] = {
+        {"A", RETRO_DEVICE_ID_JOYPAD_A}, {"B", RETRO_DEVICE_ID_JOYPAD_B},
+        {"L", RETRO_DEVICE_ID_JOYPAD_L}, {"R", RETRO_DEVICE_ID_JOYPAD_R},
+        {"Start", RETRO_DEVICE_ID_JOYPAD_START}, {"Select", RETRO_DEVICE_ID_JOYPAD_SELECT},
+        {"Up", RETRO_DEVICE_ID_JOYPAD_UP}, {"Down", RETRO_DEVICE_ID_JOYPAD_DOWN},
+        {"Left", RETRO_DEVICE_ID_JOYPAD_LEFT}, {"Right", RETRO_DEVICE_ID_JOYPAD_RIGHT},
+    };
+    for (const auto &entry : kNames)
+        if (name == entry.first)
+            return entry.second;
+    return -1; // "None"
+}
+
+// Switch buttons linked to GBA button each sits on by default:
+// each on its namesake, Start on Plus and X, Select on Minus and Y.
 struct ButtonMapping
 {
     const char *key;
+    SwitchButton button;
     const char *fallback;
-    unsigned retroId;
 };
 static const ButtonMapping kButtonMappings[] = {
-    {"map_a", "A", RETRO_DEVICE_ID_JOYPAD_A},
-    {"map_b", "B", RETRO_DEVICE_ID_JOYPAD_B},
-    {"map_l", "L", RETRO_DEVICE_ID_JOYPAD_L},
-    {"map_r", "R", RETRO_DEVICE_ID_JOYPAD_R},
-    {"map_start", "Plus", RETRO_DEVICE_ID_JOYPAD_START},
-    {"map_select", "Minus", RETRO_DEVICE_ID_JOYPAD_SELECT},
-    {"map_up", "Up", RETRO_DEVICE_ID_JOYPAD_UP},
-    {"map_down", "Down", RETRO_DEVICE_ID_JOYPAD_DOWN},
-    {"map_left", "Left", RETRO_DEVICE_ID_JOYPAD_LEFT},
-    {"map_right", "Right", RETRO_DEVICE_ID_JOYPAD_RIGHT},
+    {"map_a", SwitchButton::A, "A"},
+    {"map_b", SwitchButton::B, "B"},
+    {"map_x", SwitchButton::X, "Start"},
+    {"map_y", SwitchButton::Y, "Select"},
+    {"map_l", SwitchButton::L, "L"},
+    {"map_r", SwitchButton::R, "R"},
+    {"map_zl", SwitchButton::ZL, "None"},
+    {"map_zr", SwitchButton::ZR, "None"},
+    {"map_plus", SwitchButton::Plus, "Start"},
+    {"map_minus", SwitchButton::Minus, "Select"},
+    {"map_up", SwitchButton::Up, "Up"},
+    {"map_down", SwitchButton::Down, "Down"},
+    {"map_left", SwitchButton::Left, "Left"},
+    {"map_right", SwitchButton::Right, "Right"},
+    {"map_stickl", SwitchButton::StickL, "None"},
+    {"map_stickr", SwitchButton::StickR, "None"},
 };
 
 // Updates fast forward from player 1's hotkey and returns the hotkey's
@@ -1688,12 +1709,13 @@ void HandleInput()
                 if (leftX > 16000) held |= SwitchBit(SwitchButton::Right);
             }
 
-            // Controls > Button mapping: each GBA button on its Switch button.
+            // Controls > Button mapping: each Switch button on its GBA button.
             for (const ButtonMapping &mapping : kButtonMappings)
             {
-                const uint32_t bit =
-                    SwitchBitFor(OverlayConfig::GetConfigValue(mapping.key, mapping.fallback));
-                g_core->SetInputState(p, mapping.retroId, (held & bit) != 0);
+                const int id =
+                    RetroIdFor(OverlayConfig::GetConfigValue(mapping.key, mapping.fallback));
+                if (id >= 0 && (held & SwitchBit(mapping.button)))
+                    g_core->SetInputState(p, id, true);
             }
         }
     }
