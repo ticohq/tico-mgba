@@ -94,6 +94,10 @@ SWITCH_BUTTONS = [("A", "A"), ("B", "B"), ("X", "X"), ("Y", "Y"), ("L", "L"), ("
                   ("StickL", "Left stick"), ("StickR", "Right stick"), ("Up", "Up"),
                   ("Down", "Down"), ("Left", "Left"), ("Right", "Right"), ("None", "Disabled")]
 
+GBA_BUTTONS = [("A", "A"), ("B", "B"), ("L", "L"), ("R", "R"), ("Start", "Start"),
+               ("Select", "Select"), ("Up", "Up"), ("Down", "Down"), ("Left", "Left"),
+               ("Right", "Right"), ("None", "Disabled")]
+
 POSITIONS = [("hidden", "Hidden"), ("top_left", "Top left"), ("top_right", "Top right"),
              ("bottom_left", "Bottom left"), ("bottom_right", "Bottom right")]
 
@@ -126,16 +130,18 @@ OVERLAY_TAB = ("settings_mgba_tab_display", [
     ]),
 ])
 
-# The overlay's button mapping: GBA button -> Switch button, each on its
+# The overlay's button mapping: Switch button -> GBA button, each on its
 # namesake by default.
 CONTROLS_TAB = ("settings_mgba_tab_controls", [
     ("settings_mgba_section_button_mapping", [
         {"key": key, "label": "settings_mgba_" + key, "type": "enum", "default": default,
-         "choices": SWITCH_BUTTONS}
+         "choices": GBA_BUTTONS}
         for key, default in [
-            ("map_a", "A"), ("map_b", "B"),
-            ("map_l", "L"), ("map_r", "R"), ("map_start", "Plus"), ("map_select", "Minus"),
+            ("map_a", "A"), ("map_b", "B"), ("map_x", "Start"), ("map_y", "Select"),
+            ("map_l", "L"), ("map_r", "R"), ("map_zl", "None"), ("map_zr", "None"),
+            ("map_plus", "Start"), ("map_minus", "Select"),
             ("map_up", "Up"), ("map_down", "Down"), ("map_left", "Left"), ("map_right", "Right"),
+            ("map_stickl", "None"), ("map_stickr", "None"),
         ]
     ] + [
         {"key": "analog_dpad", "label": "settings_mgba_analog_dpad", "type": "bool",
@@ -234,12 +240,16 @@ LABELS = {
                                                "Назначение кнопок", "按键映射"),
     "settings_mgba_map_a": ("A", "A", "A", "A", "A", "A", "A", "A"),
     "settings_mgba_map_b": ("B", "B", "B", "B", "B", "B", "B", "B"),
+    "settings_mgba_map_x": ("X", "X", "X", "X", "X", "X", "X", "X"),
+    "settings_mgba_map_y": ("Y", "Y", "Y", "Y", "Y", "Y", "Y", "Y"),
     "settings_mgba_map_l": ("L", "L", "L", "L", "L", "L", "L", "L"),
     "settings_mgba_map_r": ("R", "R", "R", "R", "R", "R", "R", "R"),
-    "settings_mgba_map_start": ("Start", "Start", "Start", "Start", "スタート", "Start",
-                                  "Start", "开始"),
-    "settings_mgba_map_select": ("Select", "Select", "Select", "Select", "セレクト", "Select",
-                                   "Select", "选择"),
+    "settings_mgba_map_zl": ("ZL", "ZL", "ZL", "ZL", "ZL", "ZL", "ZL", "ZL"),
+    "settings_mgba_map_zr": ("ZR", "ZR", "ZR", "ZR", "ZR", "ZR", "ZR", "ZR"),
+    "settings_mgba_map_plus": ("Plus (+)", "Plus (+)", "Más (+)", "Plus (+)", "プラス (+)",
+                                "Mais (+)", "Плюс (+)", "加号 (+)"),
+    "settings_mgba_map_minus": ("Minus (-)", "Minus (-)", "Menos (-)", "Moins (-)", "マイナス (-)",
+                                 "Menos (-)", "Минус (-)", "减号 (-)"),
     "settings_mgba_map_up": ("D-Pad Up", "Steuerkreuz oben", "Cruceta arriba",
                                "Croix haut", "十字キー上", "Direcional para cima",
                                "Крестовина вверх", "方向键上"),
@@ -252,6 +262,14 @@ LABELS = {
     "settings_mgba_map_right": ("D-Pad Right", "Steuerkreuz rechts", "Cruceta derecha",
                                   "Croix droite", "十字キー右", "Direcional para a direita",
                                   "Крестовина вправо", "方向键右"),
+    "settings_mgba_map_stickl": ("Left stick (press)", "Linker Stick (drücken)",
+                                  "Stick izquierdo (pulsar)", "Stick gauche (appui)",
+                                  "左スティック押し込み", "Analógico esquerdo (pressionar)",
+                                  "Левый стик (нажатие)", "左摇杆按下"),
+    "settings_mgba_map_stickr": ("Right stick (press)", "Rechter Stick (drücken)",
+                                  "Stick derecho (pulsar)", "Stick droit (appui)",
+                                  "右スティック押し込み", "Analógico direito (pressionar)",
+                                  "Правый стик (нажатие)", "右摇杆按下"),
     "settings_mgba_analog_dpad": ("Left stick as D-Pad", "Linker Stick als Steuerkreuz",
                                     "Stick izquierdo como cruceta",
                                     "Stick gauche comme croix directionnelle",
